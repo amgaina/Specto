@@ -61,31 +61,38 @@ export default function Index() {
               <Bird className="h-4 w-4" />
               <span>Geospatial Wildlife Intelligence</span>
             </div>
-            
+
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
               Monitor & Protect
               <span className="block text-gradient-gold">Louisiana's Avian Heritage</span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Transform decades of survey data into actionable conservation insights. 
+              Transform decades of survey data into actionable conservation insights.
               Specto brings AI-powered analysis to coastal bird colony monitoring.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a
-                href="/map"
+                href="/data"
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-6 py-3 rounded-lg shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] transition-all"
               >
+                <TrendingUp className="h-5 w-5" />
+                Explore Data
+              </a>
+              <a
+                href="/map"
+                className="inline-flex items-center gap-2 border-2 border-foreground/20 bg-transparent text-foreground font-semibold px-6 py-3 rounded-lg hover:bg-foreground/10 hover:border-foreground/30 transition-all"
+              >
                 <Map className="h-5 w-5" />
-                Explore Map
+                View Map
               </a>
               <a
                 href="/analysis"
                 className="inline-flex items-center gap-2 border-2 border-foreground/20 bg-transparent text-foreground font-semibold px-6 py-3 rounded-lg hover:bg-foreground/10 hover:border-foreground/30 transition-all"
               >
                 <Camera className="h-5 w-5" />
-                Try Image Analysis
+                Image Analysis
               </a>
             </div>
           </div>
@@ -135,7 +142,7 @@ export default function Index() {
             {/* Right Sidebar */}
             <div className="space-y-6">
               <TimelineSlider />
-              
+
               {/* Species Overview */}
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Map, BarChart3, Image, Settings, Bird } from "lucide-react";
+import { Menu, X, Map, BarChart3, Image, Settings, Bird, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
+  { name: "Data Explorer", href: "/data", icon: Database },
   { name: "Map Explorer", href: "/map", icon: Map },
   { name: "Image Analysis", href: "/analysis", icon: Image },
   { name: "Settings", href: "/settings", icon: Settings },
