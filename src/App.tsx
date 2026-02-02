@@ -2,12 +2,33 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import MapExplorer from "./pages/MapExplorer";
-import ImageAnalysis from "./pages/ImageAnalysis";
-import Settings from "./pages/Settings";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
+
+// Login
+import Login from "./pages/Login";
+
+// Manager Pages
+import ManagerDashboard from "./pages/manager/Dashboard";
+import ManagerDataExplorer from "./pages/manager/DataExplorer";
+import ManagerMapExplorer from "./pages/manager/MapExplorer";
+import ManagerImageAnalysis from "./pages/manager/ImageAnalysis";
+import ManagerSettings from "./pages/manager/Settings";
+
+// Admin Pages
+import AdminDashboard from "./pages/admin/Dashboard";
+import AdminReview from "./pages/admin/Review";
+import AdminUpload from "./pages/admin/Upload";
+import AdminImages from "./pages/admin/Images";
+import AdminMapView from "./pages/admin/MapView";
+import AdminSettings from "./pages/admin/Settings";
+
+// Public/Citizen Scientist Pages
+import PublicDashboard from "./pages/public/Dashboard";
+import PublicUpload from "./pages/public/Upload";
+import PublicAchievements from "./pages/public/Achievements";
+import PublicVolunteer from "./pages/public/Volunteer";
+import PublicSettings from "./pages/public/Settings";
 
 const queryClient = new QueryClient();
 
@@ -18,11 +39,33 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/map" element={<MapExplorer />} />
-          <Route path="/analysis" element={<ImageAnalysis />} />
-          <Route path="/settings" element={<Settings />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Redirect root to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
+
+          {/* Wildlife Manager Routes */}
+          <Route path="/manager" element={<ManagerDashboard />} />
+          <Route path="/manager/data" element={<ManagerDataExplorer />} />
+          <Route path="/manager/map" element={<ManagerMapExplorer />} />
+          <Route path="/manager/analysis" element={<ManagerImageAnalysis />} />
+          <Route path="/manager/settings" element={<ManagerSettings />} />
+
+          {/* Data Administrator Routes */}
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/review" element={<AdminReview />} />
+          <Route path="/admin/upload" element={<AdminUpload />} />
+          <Route path="/admin/images" element={<AdminImages />} />
+          <Route path="/admin/map" element={<AdminMapView />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
+
+          {/* Public/Citizen Scientist Routes */}
+          <Route path="/public" element={<PublicDashboard />} />
+          <Route path="/public/upload" element={<PublicUpload />} />
+          <Route path="/public/achievements" element={<PublicAchievements />} />
+          <Route path="/public/volunteer" element={<PublicVolunteer />} />
+          <Route path="/public/settings" element={<PublicSettings />} />
+
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
