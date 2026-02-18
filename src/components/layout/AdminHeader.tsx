@@ -14,7 +14,8 @@ const navigation = [
     { name: "Upload Data", href: "/admin/upload", icon: Upload },
     { name: "Images", href: "/admin/images", icon: Image },
     { name: "Review", href: "/admin/review", icon: CheckSquare },
-    { name: "Map View", href: "/admin/map", icon: Map },
+    { name: "Data Explorer", href: "/admin/data", icon: Database },
+    { name: "Depth Analysis", href: "/admin/map", icon: Map },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

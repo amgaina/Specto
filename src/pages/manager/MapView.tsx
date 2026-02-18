@@ -6,13 +6,12 @@ import {
     ClipboardList, History, Zap, ArrowUpRight, ArrowDownRight,
     Database, Terminal, Cpu, Bot, Globe, Loader2, MessageCircle
 } from "lucide-react";
-
-import { AdminHeader } from "@/components/layout/AdminHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { ManagerHeader } from "@/components/layout/ManagerHeader";
 
 // --- Types ---
 type RawRow = {
@@ -41,7 +40,7 @@ type YearData = {
 };
 type ChatMsg = { id: string; role: "user" | "bot" | "thinking"; text: string };
 
-export default function AdminMapView() {
+export default function ManagerMapView() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Map<number, YearData>>(new Map());
     const [years, setYears] = useState<number[]>([]);
@@ -217,7 +216,7 @@ export default function AdminMapView() {
                 .thinking-pulse { animation: pulse-thinking 1.5s infinite; }
             `}</style>
 
-            <AdminHeader />
+            <ManagerHeader />
 
             {loading ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 bg-black/20">

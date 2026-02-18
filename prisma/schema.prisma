@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AvianMonitoring {
+  id                   String   @id @default(cuid())
+
+  year                 Int?
+  date                 DateTime?
+
+  colonyName           String?
+  latitude_x           Float?
+  longitude_x          Float?
+
+  dottingAreaNumber    Int?
+  cameraNumber         Int?
+  cardNumber           Int?
+  photoNumber          String?
+
+  pq                   String?
+  speciesCode          String?
+
+  wbn                  Float?
+  chickNestwithoutAdult Float?
+  abandNest            Float?
+  emptyNest            Float?
+  pbn                  Float?
+  site                 Float?
+  brood                Float?
+  otherAdultsInColony  Float?
+  otherImmInColony     Float?
+  chicksNestlings      Float?
+  roostingBirds        Float?
+  roostingAdults       Float?
+  roostingImmatures    Float?
+  unknownAge           Float?
+
+  dotter               String?
+  dottersColonyNumber  Float?
+  dateDotted           DateTime?
+  notes                String?
+  bestForBPE           String?
+
+  chicksNestlingsAlt   Float?   // For "ChicksNestlings" second column
+  additionalNotes      String?
+  subcolony            String?
+  chickNest            Float?
+  territory            Float?
+  otherBirds           Float?
+
+  colonyID             String?
+  activeInventory      String?
+  colonyGroupBuffer    String?
+  state                String?
+
+  longitude_y          Float?
+  latitude_y           Float?
+
+  primaryHabitat       String?
+  landForm             String?
+  geoRegion            String?
+  extrapArea           String?
+  terrestEcoRegion     String?
+  marineEcoRegion      String?
+  formerNames          String?
+  origDotterID         String?
+  notesAugust2022      String?
+
+  highResImage_new     String?
+  screenshot_new       String?
+  thumbnail_new        String?
+
+  total_nests          Float?
+  total_birds          Float?
+
+  date2                String?
+  month                String?
+  uid                  String?
+  day                  String?
+
+  createdAt            DateTime @default(now())
+
+  @@index([year])
+  @@index([speciesCode])
+  @@index([colonyName])
+}

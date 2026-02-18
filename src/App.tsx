@@ -11,7 +11,6 @@ import Login from "./pages/Login";
 // Manager Pages
 import ManagerDashboard from "./pages/manager/Dashboard";
 import ManagerDataExplorer from "./pages/manager/DataExplorer";
-import ManagerMapExplorer from "./pages/manager/MapExplorer";
 import ManagerImageAnalysis from "./pages/manager/ImageAnalysis";
 import ManagerSettings from "./pages/manager/Settings";
 
@@ -29,6 +28,8 @@ import PublicUpload from "./pages/public/Upload";
 import PublicAchievements from "./pages/public/Achievements";
 import PublicVolunteer from "./pages/public/Volunteer";
 import PublicSettings from "./pages/public/Settings";
+import ManagerMapView from "./pages/manager/MapView";
+import DataExplorer from "./pages/admin/DataExplorer";
 
 const queryClient = new QueryClient();
 
@@ -46,8 +47,8 @@ const App = () => (
           {/* Wildlife Manager Routes */}
           <Route path="/manager" element={<ManagerDashboard />} />
           <Route path="/manager/data" element={<ManagerDataExplorer />} />
-          <Route path="/manager/map" element={<ManagerMapExplorer />} />
           <Route path="/manager/analysis" element={<ManagerImageAnalysis />} />
+          <Route path="/manager/depth" element={<ManagerMapView />} />
           <Route path="/manager/settings" element={<ManagerSettings />} />
 
           {/* Data Administrator Routes */}
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/admin/upload" element={<AdminUpload />} />
           <Route path="/admin/images" element={<AdminImages />} />
           <Route path="/admin/map" element={<AdminMapView />} />
+          <Route path="/admin/data" element={<DataExplorer />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
 
           {/* Public/Citizen Scientist Routes */}

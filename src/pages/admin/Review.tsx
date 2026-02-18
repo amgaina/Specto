@@ -64,7 +64,7 @@ interface SubmittedPhoto {
 const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     {
         id: "1",
-        imageUrl: "https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=800&h=600&fit=crop",
+        imageUrl: "/image_1.png",
         submittedBy: { name: "Sarah Johnson", email: "sarah.j@email.com", totalCredits: 245 },
         species: "Brown Pelican",
         location: "Rabbit Island",
@@ -76,7 +76,7 @@ const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     },
     {
         id: "2",
-        imageUrl: "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=800&h=600&fit=crop",
+        imageUrl: "/image_2.png",
         submittedBy: { name: "Michael Chen", email: "m.chen@email.com", totalCredits: 89 },
         species: "Great Egret",
         location: "Queen Bess Island",
@@ -88,7 +88,7 @@ const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     },
     {
         id: "3",
-        imageUrl: "https://images.unsplash.com/photo-1480044965905-02098d419e96?w=800&h=600&fit=crop",
+        imageUrl: "/image_3.png",
         submittedBy: { name: "Emily Rodriguez", email: "emily.r@email.com", totalCredits: 412 },
         species: null,
         location: "Mangrove Cay",
@@ -100,7 +100,7 @@ const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     },
     {
         id: "4",
-        imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop",
+        imageUrl: "/image_4.png",
         submittedBy: { name: "James Wilson", email: "jwilson@email.com", totalCredits: 156 },
         species: "Royal Tern",
         location: null,
@@ -112,7 +112,7 @@ const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     },
     {
         id: "5",
-        imageUrl: "https://images.unsplash.com/photo-1551085254-e96b210db58a?w=800&h=600&fit=crop",
+        imageUrl: "/image_5.png",
         submittedBy: { name: "Lisa Park", email: "lisa.park@email.com", totalCredits: 67 },
         species: "Roseate Spoonbill",
         location: "Wine Island",
@@ -124,7 +124,7 @@ const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     },
     {
         id: "6",
-        imageUrl: "https://images.unsplash.com/photo-1555169062-013468b47731?w=800&h=600&fit=crop",
+        imageUrl: "/image_6.png",
         submittedBy: { name: "Sarah Johnson", email: "sarah.j@email.com", totalCredits: 245 },
         species: "Laughing Gull",
         location: "Felicity Island",
@@ -138,7 +138,7 @@ const MOCK_SUBMISSIONS: SubmittedPhoto[] = [
     },
     {
         id: "7",
-        imageUrl: "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=800&h=600&fit=crop",
+        imageUrl: "/image_1.png",
         submittedBy: { name: "Tom Baker", email: "tbaker@email.com", totalCredits: 34 },
         species: null,
         location: null,
@@ -465,8 +465,8 @@ export default function AdminReview() {
                                 {photo.status !== "pending" && photo.reviewNotes && (
                                     <div
                                         className={`mt-3 p-2 rounded-lg text-xs ${photo.status === "approved"
-                                                ? "bg-green-500/10 text-green-600"
-                                                : "bg-red-500/10 text-red-500"
+                                            ? "bg-green-500/10 text-green-600"
+                                            : "bg-red-500/10 text-red-500"
                                             }`}
                                     >
                                         <p className="font-medium mb-0.5">Review Note:</p>

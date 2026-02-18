@@ -12,8 +12,8 @@ interface ManagerHeaderProps {
 const navigation = [
     { name: "Dashboard", href: "/manager", icon: BarChart3 },
     { name: "Data Explorer", href: "/manager/data", icon: Database },
-    { name: "Map Explorer", href: "/manager/map", icon: Map },
     { name: "Image Analysis", href: "/manager/analysis", icon: Image },
+    { name: "Depth Analysis", href: "/manager/depth", icon: Map },
     { name: "Settings", href: "/manager/settings", icon: Settings },
 ];
 
