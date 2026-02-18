@@ -11,6 +11,7 @@ import { StatsOverview } from "@/components/visualization/StatsOverview";
 import { DataTable } from "@/components/visualization/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bird, BarChart3, Table, Loader2 } from "lucide-react";
+import { AdminHeader } from "@/components/layout/AdminHeader";
 
 function DataExplorerContent() {
     const { loading, error, selectedYear } = useData();
@@ -19,7 +20,7 @@ function DataExplorerContent() {
     if (loading) {
         return (
             <div className="min-h-screen bg-background">
-                <Header />
+                <AdminHeader />
                 <div className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
                     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -34,7 +35,7 @@ function DataExplorerContent() {
     if (error) {
         return (
             <div className="min-h-screen bg-background">
-                <Header />
+                <AdminHeader />
                 <div className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
                     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                         <div className="text-6xl">⚠️</div>
@@ -50,7 +51,7 @@ function DataExplorerContent() {
 
     return (
         <div className="min-h-screen bg-background">
-            <Header />
+            <AdminHeader />
 
             {/* Hero Section */}
             <section className="relative pt-24 pb-8 overflow-hidden">
