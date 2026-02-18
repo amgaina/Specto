@@ -1,265 +1,414 @@
 import { useState, useCallback } from "react";
+import { usePipeline } from "@/context/PipelineContext";
 import { AdminHeader } from "@/components/layout/AdminHeader";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    Upload,
-    Image,
-    FileSpreadsheet,
-    MapPin,
-    CheckCircle2,
-    XCircle,
-    Clock,
-    Trash2,
+    Upload, Image, CheckCircle2, XCircle,
+    Clock, Cloud, HardDrive, FolderOpen, Play, Bird, Home,
+    Loader2,
 } from "lucide-react";
+import {
+    processBatch, mockS3Scan, getMockCompletedJobs,
+    type BatchJob,
+} from "@/lib/batchProcessingService";
 
-interface UploadedFile {
-    id: string;
-    name: string;
-    type: "image" | "csv" | "json" | "geojson";
-    size: string;
-    status: "processing" | "completed" | "error";
-    uploadedAt: Date;
-    preview?: string;
-}
-
-export default function AdminUpload() {
+export default function AdminUpload({ embedded = false }: { embedded?: boolean }) {
+    const { addBatchResults } = usePipeline();
+    const [activeTab, setActiveTab] = useState("cloud");
+    const [jobs, setJobs] = useState<BatchJob[]>(getMockCompletedJobs());
     const [isDragging, setIsDragging] = useState(false);
-    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
-        {
-            id: "1",
-            name: "colony_survey_2024.csv",
-            type: "csv",
-            size: "2.4 MB",
-            status: "completed",
-            uploadedAt: new Date(Date.now() - 3600000),
-        },
-        {
-            id: "2",
-            name: "nest_locations.geojson",
-            type: "geojson",
-            size: "1.1 MB",
-            status: "completed",
-            uploadedAt: new Date(Date.now() - 7200000),
-        },
-    ]);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-    const handleFiles = useCallback((files: File[]) => {
-        const formatSize = (bytes: number): string => {
-            if (bytes < 1024) return bytes + " B";
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-            return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    // S3 state
+    const [s3Bucket, setS3Bucket] = useState("s3://twi-aviandata");
+    const [s3Scanning, setS3Scanning] = useState(false);
+    const [s3Result, setS3Result] = useState<{ folders: string[]; totalImages: number; totalSize: string } | null>(null);
+    const [s3SelectedFolders, setS3SelectedFolders] = useState<Set<string>>(new Set());
+
+    // Drive state
+    const [driveConnected, setDriveConnected] = useState(false);
+    const [driveScanning, setDriveScanning] = useState(false);
+
+    const handleS3Connect = async () => {
+        setS3Scanning(true);
+        setS3Result(null);
+        const result = await mockS3Scan(s3Bucket);
+        setS3Result(result);
+        setS3Scanning(false);
+    };
+
+    const handleS3Import = () => {
+        const mockJob: BatchJob = {
+            id: crypto.randomUUID(),
+            source: "s3",
+            sourceName: `${s3Bucket}/surveys/ (${s3SelectedFolders.size} folders)`,
+            files: [],
+            status: "processing",
+            progress: 0,
+            startedAt: new Date(),
+            results: { totalImages: s3SelectedFolders.size * 450, processedImages: 0, totalBirds: 0, totalNests: 0, errors: 0 },
         };
 
-        const newFiles: UploadedFile[] = files.map((file) => {
-            const ext = file.name.split(".").pop()?.toLowerCase();
-            let type: UploadedFile["type"] = "csv";
-            if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext || "")) type = "image";
-            else if (ext === "json") type = "json";
-            else if (ext === "geojson") type = "geojson";
-
-            return {
-                id: Math.random().toString(36).substr(2, 9),
-                name: file.name,
-                type,
-                size: formatSize(file.size),
-                status: "processing" as const,
-                uploadedAt: new Date(),
-                preview: type === "image" ? URL.createObjectURL(file) : undefined,
-            };
-        });
-
-        setUploadedFiles((prev) => [...newFiles, ...prev]);
+        setJobs(prev => [mockJob, ...prev]);
+        setActiveTab("queue");
 
         // Simulate processing
-        newFiles.forEach((file) => {
-            setTimeout(() => {
-                setUploadedFiles((prev) =>
-                    prev.map((f) => (f.id === file.id ? { ...f, status: "completed" as const } : f))
-                );
-            }, 2000 + Math.random() * 3000);
-        });
-    }, []);
+        let progress = 0;
+        const timer = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(timer);
+                setJobs(prev => prev.map(j =>
+                    j.id === mockJob.id
+                        ? {
+                            ...j,
+                            status: "completed" as const,
+                            progress: 100,
+                            completedAt: new Date(),
+                            results: {
+                                totalImages: s3SelectedFolders.size * 450,
+                                processedImages: s3SelectedFolders.size * 450,
+                                totalBirds: s3SelectedFolders.size * 2800,
+                                totalNests: s3SelectedFolders.size * 1950,
+                                errors: Math.floor(Math.random() * 3),
+                            },
+                        }
+                        : j
+                ));
+            } else {
+                setJobs(prev => prev.map(j =>
+                    j.id === mockJob.id
+                        ? { ...j, progress: Math.round(progress), results: { ...j.results, processedImages: Math.round((progress / 100) * j.results.totalImages) } }
+                        : j
+                ));
+            }
+        }, 600);
+    };
 
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    }, []);
+    const handleDriveConnect = () => {
+        setDriveScanning(true);
+        setTimeout(() => {
+            setDriveConnected(true);
+            setDriveScanning(false);
+        }, 2000);
+    };
 
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
+    // Batch upload handlers
+    const handleFiles = useCallback((files: File[]) => {
+        const imageFiles = files.filter(f => f.type.startsWith("image/"));
+        setSelectedFiles(prev => [...prev, ...imageFiles]);
     }, []);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
-        const files = Array.from(e.dataTransfer.files);
-        handleFiles(files);
+        handleFiles(Array.from(e.dataTransfer.files));
     }, [handleFiles]);
 
-    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            handleFiles(Array.from(e.target.files));
+    const handleStartBatch = async () => {
+        if (selectedFiles.length === 0) return;
+        setActiveTab("queue");
+
+        const completedJob = await processBatch(selectedFiles, (job) => {
+            setJobs(prev => {
+                const existing = prev.findIndex(j => j.id === job.id);
+                if (existing >= 0) {
+                    const updated = [...prev];
+                    updated[existing] = { ...job };
+                    return updated;
+                }
+                return [{ ...job }, ...prev];
+            });
+        });
+
+        // Push completed batch results into the pipeline context
+        if (completedJob && completedJob.files) {
+            const batchEntries = completedJob.files
+                .filter(f => f.status === "completed" && f.file)
+                .map(f => ({
+                    fileName: f.name,
+                    imageUrl: URL.createObjectURL(f.file!),
+                    imageFile: f.file!,
+                    aiBirdCount: f.prediction?.birdCount,
+                    aiNestCount: f.prediction?.nestCount,
+                    aiVisualization: f.prediction?.visualization,
+                    aiModelInfo: f.prediction?.modelInfo,
+                }));
+            if (batchEntries.length > 0) {
+                addBatchResults(batchEntries);
+            }
         }
+
+        setSelectedFiles([]);
     };
 
-    const deleteFile = (id: string) => {
-        setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
-    };
+    const totalStats = jobs.reduce(
+        (acc, j) => ({
+            images: acc.images + j.results.processedImages,
+            birds: acc.birds + j.results.totalBirds,
+            nests: acc.nests + j.results.totalNests,
+        }),
+        { images: 0, birds: 0, nests: 0 }
+    );
 
-    const getStatusIcon = (status: UploadedFile["status"]) => {
-        switch (status) {
-            case "completed":
-                return <CheckCircle2 className="h-4 w-4 text-success" />;
-            case "error":
-                return <XCircle className="h-4 w-4 text-destructive" />;
-            default:
-                return <Clock className="h-4 w-4 text-warning animate-pulse" />;
-        }
-    };
+    const content = (
+        <div>
+                {!embedded && (
+                    <div className="mb-6">
+                        <h1 className="text-xl font-bold mb-1">Data Ingestion</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Upload aerial survey images for AI processing
+                        </p>
+                    </div>
+                )}
 
-    const getFileIcon = (type: UploadedFile["type"]) => {
-        switch (type) {
-            case "image":
-                return <Image className="h-5 w-5" />;
-            case "geojson":
-                return <MapPin className="h-5 w-5" />;
-            default:
-                return <FileSpreadsheet className="h-5 w-5" />;
-        }
-    };
+                {/* Compact stats bar */}
+                <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><Image className="h-3 w-3" />{totalStats.images.toLocaleString()} images</span>
+                    <span className="flex items-center gap-1"><Bird className="h-3 w-3" />{totalStats.birds.toLocaleString()} birds</span>
+                    <span className="flex items-center gap-1"><Home className="h-3 w-3" />{totalStats.nests.toLocaleString()} nests</span>
+                    {jobs.some(j => j.status === "processing") && (
+                        <span className="flex items-center gap-1 text-primary"><Loader2 className="h-3 w-3 animate-spin" />Processing...</span>
+                    )}
+                </div>
+
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full max-w-sm grid-cols-3 mb-4 h-8">
+                        <TabsTrigger value="cloud" className="gap-1.5 text-xs">
+                            <Cloud className="h-3 w-3" />
+                            Cloud
+                        </TabsTrigger>
+                        <TabsTrigger value="upload" className="gap-1.5 text-xs">
+                            <Upload className="h-3 w-3" />
+                            Upload
+                        </TabsTrigger>
+                        <TabsTrigger value="queue" className="gap-1.5 text-xs">
+                            <HardDrive className="h-3 w-3" />
+                            Queue
+                            {jobs.some(j => j.status === "processing") && (
+                                <span className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
+                            )}
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* Cloud Sources Tab */}
+                    <TabsContent value="cloud" className="space-y-4 mt-0">
+                        <div className="grid lg:grid-cols-2 gap-4">
+                            {/* S3 */}
+                            <div className="rounded-lg border border-border/50 p-4 space-y-3">
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                    <Cloud className="h-4 w-4 text-amber-500" />
+                                    Amazon S3
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={s3Bucket}
+                                        onChange={e => setS3Bucket(e.target.value)}
+                                        placeholder="s3://bucket-name/prefix"
+                                        className="flex-1 h-8 text-sm"
+                                    />
+                                    <Button size="sm" onClick={handleS3Connect} disabled={s3Scanning}>
+                                        {s3Scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : "Scan"}
+                                    </Button>
+                                </div>
+
+                                {s3Scanning && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        Scanning...
+                                    </div>
+                                )}
+
+                                {s3Result && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-xs text-green-500">
+                                            <CheckCircle2 className="h-3 w-3" />
+                                            {s3Result.totalImages.toLocaleString()} images ({s3Result.totalSize})
+                                        </div>
+
+                                        <div className="space-y-0.5 max-h-[150px] overflow-y-auto">
+                                            {s3Result.folders.map(folder => (
+                                                <button
+                                                    key={folder}
+                                                    onClick={() => {
+                                                        const next = new Set(s3SelectedFolders);
+                                                        next.has(folder) ? next.delete(folder) : next.add(folder);
+                                                        setS3SelectedFolders(next);
+                                                    }}
+                                                    className={`w-full flex items-center gap-2 p-1.5 rounded text-xs text-left transition-all ${s3SelectedFolders.has(folder)
+                                                            ? "bg-primary/10 text-primary"
+                                                            : "hover:bg-muted/50 text-muted-foreground"
+                                                        }`}
+                                                >
+                                                    <FolderOpen className="h-3 w-3 shrink-0" />
+                                                    <span className="truncate">{folder}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {s3SelectedFolders.size > 0 && (
+                                            <Button size="sm" onClick={handleS3Import} className="w-full gap-1.5 text-xs">
+                                                <Play className="h-3 w-3" />
+                                                Import {s3SelectedFolders.size} folders (~{s3SelectedFolders.size * 450} images)
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Google Drive */}
+                            <div className="rounded-lg border border-border/50 p-4 space-y-3">
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                    <HardDrive className="h-4 w-4 text-primary" />
+                                    Google Drive
+                                </div>
+                                {!driveConnected ? (
+                                    <Button size="sm" onClick={handleDriveConnect} disabled={driveScanning} className="w-full gap-1.5 text-xs" variant="outline">
+                                        {driveScanning ? (
+                                            <><Loader2 className="h-3 w-3 animate-spin" /> Connecting...</>
+                                        ) : (
+                                            <><Cloud className="h-3 w-3" /> Connect Google Drive</>
+                                        )}
+                                    </Button>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2 text-xs text-green-500 mb-2">
+                                            <CheckCircle2 className="h-3 w-3" /> Connected
+                                        </div>
+                                        {["Field Reports 2024", "Aerial Surveys Q1", "Colony Monitoring"].map(folder => (
+                                            <div key={folder} className="flex items-center gap-2 p-1.5 rounded text-xs hover:bg-muted/50 cursor-pointer">
+                                                <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                                                <span>{folder}</span>
+                                                <span className="ml-auto text-muted-foreground">~200</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    {/* Batch Upload Tab */}
+                    <TabsContent value="upload" className="mt-0">
+                        <div
+                            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                            onDragLeave={e => { e.preventDefault(); setIsDragging(false); }}
+                            onDrop={handleDrop}
+                            className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-all ${isDragging
+                                    ? "border-primary bg-primary/10"
+                                    : "border-border/50 hover:border-border hover:bg-muted/20"
+                                }`}
+                        >
+                            <input
+                                type="file"
+                                multiple
+                                accept="image/*"
+                                onChange={e => e.target.files && handleFiles(Array.from(e.target.files))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <Upload className={`h-6 w-6 mx-auto mb-2 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+                            <p className="text-sm font-medium">{isDragging ? "Drop files here" : "Drop aerial images or click to browse"}</p>
+                            <p className="text-xs text-muted-foreground mt-1">JPG, PNG, TIFF, WebP</p>
+                        </div>
+
+                        <div className="relative my-3">
+                            <input
+                                type="file"
+                                /* @ts-expect-error webkitdirectory is valid but not in React types */
+                                webkitdirectory=""
+                                multiple
+                                onChange={e => e.target.files && handleFiles(Array.from(e.target.files))}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
+                                <FolderOpen className="h-3 w-3" />
+                                Select Entire Folder
+                            </Button>
+                        </div>
+
+                        {/* Selected files preview */}
+                        {selectedFiles.length > 0 && (
+                            <div className="space-y-3 pt-3 border-t border-border/50">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="font-medium">
+                                        {selectedFiles.length} images
+                                        <span className="text-muted-foreground ml-1.5">
+                                            ({(selectedFiles.reduce((s, f) => s + f.size, 0) / (1024 * 1024)).toFixed(1)} MB)
+                                        </span>
+                                    </span>
+                                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedFiles([])}>Clear</Button>
+                                </div>
+
+                                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1.5 max-h-[150px] overflow-y-auto">
+                                    {selectedFiles.slice(0, 30).map((file, i) => (
+                                        <div key={i} className="aspect-square rounded bg-muted/30 overflow-hidden">
+                                            <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                    {selectedFiles.length > 30 && (
+                                        <div className="aspect-square rounded bg-muted/50 flex items-center justify-center">
+                                            <span className="text-xs text-muted-foreground">+{selectedFiles.length - 30}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Button size="sm" onClick={handleStartBatch} className="w-full gap-1.5 text-xs">
+                                    <Play className="h-3 w-3" />
+                                    Process {selectedFiles.length} images with AI
+                                </Button>
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    {/* Processing Queue Tab */}
+                    <TabsContent value="queue" className="space-y-2 mt-0">
+                        {jobs.length === 0 ? (
+                            <div className="py-8 text-center text-sm text-muted-foreground">
+                                <HardDrive className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                No processing jobs yet
+                            </div>
+                        ) : (
+                            jobs.map(job => (
+                                <div key={job.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50">
+                                    <div className="shrink-0">
+                                        {job.status === "completed" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                        {job.status === "processing" && <Loader2 className="h-4 w-4 text-primary animate-spin" />}
+                                        {job.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
+                                        {job.status === "queued" && <Clock className="h-4 w-4 text-amber-500" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <p className="text-sm font-medium truncate">{job.sourceName}</p>
+                                        </div>
+                                        {job.status === "processing" && (
+                                            <Progress value={job.progress} className="h-1 mb-1" />
+                                        )}
+                                        <div className="flex gap-3 text-[10px] text-muted-foreground">
+                                            <span>{job.results.processedImages}/{job.results.totalImages} img</span>
+                                            <span>{job.results.totalBirds.toLocaleString()} birds</span>
+                                            <span>{job.results.totalNests.toLocaleString()} nests</span>
+                                            {job.results.errors > 0 && <span className="text-destructive">{job.results.errors} err</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </TabsContent>
+                </Tabs>
+        </div>
+    );
+
+    if (embedded) return content;
 
     return (
         <div className="min-h-screen bg-background">
             <AdminHeader />
-
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold mb-2">Upload Data</h1>
-                    <p className="text-muted-foreground">
-                        Upload survey data files, colony records, and geographic information
-                    </p>
-                </div>
-
-                <div className="grid lg:grid-cols-2 gap-6">
-                    {/* Upload Zone */}
-                    <Card className="glass-card">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Upload className="h-5 w-5" />
-                                Upload Files
-                            </CardTitle>
-                            <CardDescription>
-                                Drag and drop files or click to browse. Supports CSV, JSON, GeoJSON formats.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${isDragging
-                                        ? "border-primary bg-primary/10 scale-[1.02]"
-                                        : "border-border/50 hover:border-border hover:bg-muted/30"
-                                    }`}
-                            >
-                                <input
-                                    type="file"
-                                    multiple
-                                    onChange={handleFileInput}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    accept=".csv,.json,.geojson"
-                                />
-
-                                <div className="flex flex-col items-center gap-4">
-                                    <div
-                                        className={`p-4 rounded-full transition-all ${isDragging ? "bg-primary/20" : "bg-muted"
-                                            }`}
-                                    >
-                                        <Upload
-                                            className={`h-8 w-8 ${isDragging ? "text-primary" : "text-muted-foreground"}`}
-                                        />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium mb-1">
-                                            {isDragging ? "Drop files here" : "Drag & drop files here"}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">or click to browse</p>
-                                    </div>
-                                    <div className="flex flex-wrap justify-center gap-2 text-xs">
-                                        <Badge variant="outline">CSV</Badge>
-                                        <Badge variant="outline">JSON</Badge>
-                                        <Badge variant="outline">GeoJSON</Badge>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-6 p-4 rounded-lg bg-muted/30">
-                                <h4 className="font-medium mb-2">Supported Data Formats</h4>
-                                <ul className="text-sm text-muted-foreground space-y-1">
-                                    <li>• <strong>CSV:</strong> Tabular survey data with headers</li>
-                                    <li>• <strong>JSON:</strong> Structured colony and species data</li>
-                                    <li>• <strong>GeoJSON:</strong> Geographic location data</li>
-                                </ul>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Recent Uploads */}
-                    <Card className="glass-card">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Clock className="h-5 w-5" />
-                                Upload History
-                            </CardTitle>
-                            <CardDescription>View and manage your uploaded files</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                                {uploadedFiles.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <Upload className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                                        <p>No files uploaded yet</p>
-                                    </div>
-                                ) : (
-                                    uploadedFiles.map((file) => (
-                                        <div
-                                            key={file.id}
-                                            className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group"
-                                        >
-                                            <div className="p-2 rounded-lg bg-background/50">{getFileIcon(file.type)}</div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium truncate">{file.name}</p>
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <span>{file.size}</span>
-                                                    <span>•</span>
-                                                    <span>{file.uploadedAt.toLocaleTimeString()}</span>
-                                                </div>
-                                                {file.status === "processing" && (
-                                                    <Progress value={65} className="h-1 mt-2" />
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {getStatusIcon(file.status)}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => deleteFile(file.id)}
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
+                {content}
             </main>
         </div>
     );

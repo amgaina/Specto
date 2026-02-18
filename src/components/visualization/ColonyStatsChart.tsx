@@ -177,7 +177,7 @@ export function ColonyStatsChart({ className, limit = 15 }: ColonyStatsChartProp
 
             {/* Chart */}
             <ScrollArea className={showAll && viewMode === "colonies" ? "h-[400px]" : "h-[300px]"}>
-                <div style={{ height: Math.max(300, currentData.length * 28) }}>
+                <div style={{ height: Math.max(300, currentData.length * 28) }} className="overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                             data={currentData}

@@ -90,7 +90,7 @@ export default function AdminDashboard() {
         <div className="min-h-screen bg-background">
             <AdminHeader />
 
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                 {/* Welcome Section */}
                 <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
                         <CardContent>
                             <div className="grid sm:grid-cols-2 gap-4">
                                 <a
-                                    href="/admin/upload"
+                                    href="/admin/pipeline"
                                     className="flex items-center gap-4 p-4 rounded-xl border border-border/50 hover:bg-muted/30 hover:border-primary/30 transition-all group"
                                 >
                                     <div className="p-3 rounded-lg bg-primary/20 group-hover:bg-primary/30 transition-colors">
@@ -187,7 +187,7 @@ export default function AdminDashboard() {
                                 </a>
 
                                 <a
-                                    href="/admin/images"
+                                    href="/admin/pipeline"
                                     className="flex items-center gap-4 p-4 rounded-xl border border-border/50 hover:bg-muted/30 hover:border-primary/30 transition-all group"
                                 >
                                     <div className="p-3 rounded-lg bg-green-500/20 group-hover:bg-green-500/30 transition-colors">
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
                                 ))}
                             </div>
                             <Button variant="outline" className="w-full mt-4" asChild>
-                                <a href="/admin/upload">View All</a>
+                                <a href="/admin/pipeline">View All</a>
                             </Button>
                         </CardContent>
                     </Card>

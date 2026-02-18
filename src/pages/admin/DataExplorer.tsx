@@ -9,8 +9,9 @@ import { MonthlyActivityChart } from "@/components/visualization/MonthlyActivity
 import { ColonyStatsChart } from "@/components/visualization/ColonyStatsChart";
 import { StatsOverview } from "@/components/visualization/StatsOverview";
 import { DataTable } from "@/components/visualization/DataTable";
+import { ConservationInsights } from "@/components/visualization/ConservationInsights";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bird, BarChart3, Table, Loader2 } from "lucide-react";
+import { Bird, BarChart3, Table, Loader2, AlertTriangle } from "lucide-react";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 
 function DataExplorerContent() {
@@ -21,7 +22,7 @@ function DataExplorerContent() {
         return (
             <div className="min-h-screen bg-background">
                 <AdminHeader />
-                <div className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+                <div className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                         <p className="text-lg text-muted-foreground">Loading avian monitoring data...</p>
@@ -36,7 +37,7 @@ function DataExplorerContent() {
         return (
             <div className="min-h-screen bg-background">
                 <AdminHeader />
-                <div className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+                <div className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                         <div className="text-6xl">⚠️</div>
                         <h2 className="text-xl font-semibold">Failed to Load Data</h2>
@@ -54,7 +55,7 @@ function DataExplorerContent() {
             <AdminHeader />
 
             {/* Hero Section */}
-            <section className="relative pt-24 pb-8 overflow-hidden">
+            <section className="relative pt-12 pb-8 overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
                     <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-success/5 rounded-full blur-3xl" />
@@ -98,7 +99,7 @@ function DataExplorerContent() {
 
                             {/* Tabs for Different Views */}
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                <TabsList className="grid w-full grid-cols-3 mb-6">
+                                <TabsList className="grid w-full grid-cols-4 mb-6">
                                     <TabsTrigger value="overview" className="gap-2">
                                         <BarChart3 className="h-4 w-4" />
                                         <span className="hidden sm:inline">Overview</span>
@@ -106,6 +107,10 @@ function DataExplorerContent() {
                                     <TabsTrigger value="species" className="gap-2">
                                         <Bird className="h-4 w-4" />
                                         <span className="hidden sm:inline">Species</span>
+                                    </TabsTrigger>
+                                    <TabsTrigger value="conservation" className="gap-2">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Conservation</span>
                                     </TabsTrigger>
                                     <TabsTrigger value="data" className="gap-2">
                                         <Table className="h-4 w-4" />
@@ -117,8 +122,8 @@ function DataExplorerContent() {
                                 <TabsContent value="overview" className="space-y-6 mt-0">
                                     <YearlyTrendChart />
                                     <div className="grid md:grid-cols-2 gap-6">
-                                        <MonthlyActivityChart />
-                                        <ColonyStatsChart limit={10} />
+                                        <div className="min-w-0"><MonthlyActivityChart /></div>
+                                        <div className="min-w-0"><ColonyStatsChart limit={10} /></div>
                                     </div>
                                 </TabsContent>
 
@@ -126,9 +131,14 @@ function DataExplorerContent() {
                                 <TabsContent value="species" className="space-y-6 mt-0">
                                     <SpeciesDistributionChart limit={12} />
                                     <div className="grid md:grid-cols-2 gap-6">
-                                        <ColonyStatsChart limit={10} />
-                                        <MonthlyActivityChart />
+                                        <div className="min-w-0"><ColonyStatsChart limit={10} /></div>
+                                        <div className="min-w-0"><MonthlyActivityChart /></div>
                                     </div>
+                                </TabsContent>
+
+                                {/* Conservation Tab */}
+                                <TabsContent value="conservation" className="space-y-6 mt-0">
+                                    <ConservationInsights />
                                 </TabsContent>
 
                                 {/* Data Tab */}

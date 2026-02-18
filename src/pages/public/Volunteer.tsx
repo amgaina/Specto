@@ -24,7 +24,7 @@ interface VolunteerMilestone {
     achieved: boolean;
 }
 
-export default function VolunteerHours() {
+export default function VolunteerHours({ embedded = false }: { embedded?: boolean }) {
     const [userCredits, setUserCredits] = useState(125);
     const [volunteerHours, setVolunteerHours] = useState(8.5);
     const [userName, setUserName] = useState("Citizen Scientist");
@@ -64,11 +64,8 @@ export default function VolunteerHours() {
         { date: "2026-01-22", activity: "Photo uploads (8)", credits: 40, hours: 2.0 },
     ];
 
-    return (
-        <div className="min-h-screen bg-background">
-            <PublicHeader />
-
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+    const content = (
+        <div>
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Volunteer Hours</h1>
                     <p className="text-muted-foreground">
@@ -258,6 +255,16 @@ export default function VolunteerHours() {
                         </Card>
                     </div>
                 </div>
+        </div>
+    );
+
+    if (embedded) return content;
+
+    return (
+        <div className="min-h-screen bg-background">
+            <PublicHeader />
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
+                {content}
             </main>
         </div>
     );

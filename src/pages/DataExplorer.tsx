@@ -20,7 +20,7 @@ function DataExplorerContent() {
         return (
             <div className="min-h-screen bg-background">
                 <Header />
-                <div className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+                <div className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                         <p className="text-lg text-muted-foreground">Loading avian monitoring data...</p>
@@ -35,7 +35,7 @@ function DataExplorerContent() {
         return (
             <div className="min-h-screen bg-background">
                 <Header />
-                <div className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+                <div className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
                         <div className="text-6xl">⚠️</div>
                         <h2 className="text-xl font-semibold">Failed to Load Data</h2>
@@ -53,7 +53,7 @@ function DataExplorerContent() {
             <Header />
 
             {/* Hero Section */}
-            <section className="relative pt-24 pb-8 overflow-hidden">
+            <section className="relative pt-12 pb-8 overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
                     <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-success/5 rounded-full blur-3xl" />

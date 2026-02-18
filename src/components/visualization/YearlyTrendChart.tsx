@@ -8,6 +8,7 @@ import {
     Tooltip,
     ResponsiveContainer,
     Legend,
+    ReferenceLine,
 } from "recharts";
 import { TrendingUp, Bird, Home } from "lucide-react";
 import { useData } from "@/hooks/useData";
@@ -115,7 +116,7 @@ export function YearlyTrendChart({ className, showNests = true, showBirds = true
             </div>
 
             {/* Chart */}
-            <div className="h-[300px]">
+            <div className="h-[300px] overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <defs>
@@ -144,6 +145,19 @@ export function YearlyTrendChart({ className, showNests = true, showBirds = true
                             tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
                         />
                         <Tooltip content={<CustomTooltip />} />
+                        <ReferenceLine
+                            x={2010}
+                            stroke="hsl(var(--destructive))"
+                            strokeDasharray="4 4"
+                            strokeWidth={1.5}
+                            label={{
+                                value: "Deepwater Horizon",
+                                position: "top",
+                                fill: "hsl(var(--destructive))",
+                                fontSize: 10,
+                                fontWeight: 600,
+                            }}
+                        />
                         <Legend />
                         {showBirds && (
                             <Area

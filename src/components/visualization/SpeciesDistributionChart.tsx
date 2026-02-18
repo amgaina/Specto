@@ -174,7 +174,7 @@ export function SpeciesDistributionChart({ className, limit = 10 }: SpeciesDistr
             </div>
 
             {/* Chart */}
-            <div className="h-[300px]">
+            <div className="h-[300px] overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
                     {chartView === "bar" ? (
                         <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>

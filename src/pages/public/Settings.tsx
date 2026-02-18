@@ -63,7 +63,7 @@ export default function PublicSettings() {
         <div className="min-h-screen bg-background">
             <PublicHeader />
 
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Settings</h1>
                     <p className="text-muted-foreground">Manage your profile and preferences</p>

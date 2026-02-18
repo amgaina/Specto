@@ -158,7 +158,7 @@ const ALL_BADGES: BadgeInfo[] = [
     },
 ];
 
-export default function Achievements() {
+export default function Achievements({ embedded = false }: { embedded?: boolean }) {
     const [userCredits, setUserCredits] = useState(125);
     const [earnedBadges, setEarnedBadges] = useState<string[]>(["first-upload", "week-streak"]);
 
@@ -222,11 +222,8 @@ export default function Achievements() {
         );
     };
 
-    return (
-        <div className="min-h-screen bg-background">
-            <PublicHeader />
-
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+    const content = (
+        <div>
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Achievements & Badges</h1>
                     <p className="text-muted-foreground">
@@ -327,6 +324,16 @@ export default function Achievements() {
                         </div>
                     </CardContent>
                 </Card>
+        </div>
+    );
+
+    if (embedded) return content;
+
+    return (
+        <div className="min-h-screen bg-background">
+            <PublicHeader />
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
+                {content}
             </main>
         </div>
     );

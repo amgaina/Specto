@@ -135,7 +135,7 @@ export default function PublicDashboard() {
         <div className="min-h-screen bg-background">
             <PublicHeader />
 
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                 {/* Welcome Section */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name}! 👋</h1>
@@ -227,7 +227,7 @@ export default function PublicDashboard() {
                                     </a>
 
                                     <a
-                                        href="/public/achievements"
+                                        href="/public/progress"
                                         className="flex items-center gap-4 p-4 rounded-xl border border-border/50 hover:bg-muted/30 transition-all group"
                                     >
                                         <div className="p-3 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 group-hover:scale-110 transition-transform">
@@ -337,7 +337,7 @@ export default function PublicDashboard() {
                                     <p>• Download certificate anytime</p>
                                 </div>
                                 <Button className="w-full mt-4" variant="outline" asChild>
-                                    <a href="/public/volunteer">View Details</a>
+                                    <a href="/public/progress">View Details</a>
                                 </Button>
                             </CardContent>
                         </Card>

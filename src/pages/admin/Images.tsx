@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
+import { usePipeline, type LabeledImage } from "@/context/PipelineContext";
 import { AdminHeader } from "@/components/layout/AdminHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import {
     Camera,
-    Trash2,
     Eye,
     Grid,
     List,
@@ -34,22 +34,8 @@ import {
     Edit,
     Save,
     CheckCircle2,
+    Bot,
 } from "lucide-react";
-
-interface ImageFile {
-    id: string;
-    name: string;
-    size: string;
-    uploadedAt: Date;
-    preview: string;
-    species?: string;
-    location?: string;
-    birdCount?: number;
-    nestCount?: number;
-    colonyName?: string;
-    notes?: string;
-    isLabeled: boolean;
-}
 
 const SPECIES_OPTIONS = [
     "Brown Pelican",
@@ -75,60 +61,11 @@ const COLONY_OPTIONS = [
     "Last Island",
 ];
 
-export default function AdminImages() {
+export default function AdminImages({ embedded = false }: { embedded?: boolean }) {
+    const { galleryImages, updateLabels } = usePipeline();
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-    const [isDragging, setIsDragging] = useState(false);
-    const [selectedImage, setSelectedImage] = useState<ImageFile | null>(null);
+    const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
     const [labelDialogOpen, setLabelDialogOpen] = useState(false);
-    const [images, setImages] = useState<ImageFile[]>([
-        {
-            id: "1",
-            name: "aerial_colony_001.jpg",
-            size: "8.2 MB",
-            uploadedAt: new Date(Date.now() - 3600000),
-            preview: "/image_1.png",
-            species: "Brown Pelican",
-            location: "Rabbit Island",
-            birdCount: 245,
-            nestCount: 89,
-            colonyName: "Rabbit Island Colony A",
-            isLabeled: true,
-        },
-        {
-            id: "2",
-            name: "marsh_survey_012.jpg",
-            size: "6.8 MB",
-            uploadedAt: new Date(Date.now() - 7200000),
-            preview: "/image_2.png",
-            species: "Great Egret",
-            location: "Queen Bess Island",
-            birdCount: 128,
-            nestCount: 45,
-            colonyName: "Queen Bess Colony",
-            isLabeled: true,
-        },
-        {
-            id: "3",
-            name: "nesting_site_045.jpg",
-            size: "7.4 MB",
-            uploadedAt: new Date(Date.now() - 10800000),
-            preview: "/image_3.png",
-            isLabeled: false,
-        },
-        {
-            id: "4",
-            name: "colony_overview_088.jpg",
-            size: "9.1 MB",
-            uploadedAt: new Date(Date.now() - 14400000),
-            preview: "/image_4.png",
-            species: "Royal Tern",
-            location: "Wine Island",
-            birdCount: 312,
-            nestCount: 156,
-            colonyName: "Wine Island Tern Colony",
-            isLabeled: true,
-        },
-    ]);
 
     // Form state for labeling
     const [labelForm, setLabelForm] = useState({
@@ -140,196 +77,91 @@ export default function AdminImages() {
         notes: "",
     });
 
-    const handleFiles = useCallback((files: File[]) => {
-        const formatSize = (bytes: number): string => {
-            if (bytes < 1024) return bytes + " B";
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-            return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-        };
+    const selectedImage = galleryImages.find((i) => i.id === selectedImageId) || null;
 
-        const newImages: ImageFile[] = files
-            .filter((file) => file.type.startsWith("image/"))
-            .map((file) => ({
-                id: Math.random().toString(36).substr(2, 9),
-                name: file.name,
-                size: formatSize(file.size),
-                uploadedAt: new Date(),
-                preview: URL.createObjectURL(file),
-                isLabeled: false,
-            }));
+    const isLabeled = (img: LabeledImage) =>
+        !!(img.species || img.colonyName || img.aiBirdCount);
 
-        setImages((prev) => [...newImages, ...prev]);
-    }, []);
-
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    }, []);
-
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    }, []);
-
-    const handleDrop = useCallback(
-        (e: React.DragEvent) => {
-            e.preventDefault();
-            setIsDragging(false);
-            const files = Array.from(e.dataTransfer.files);
-            handleFiles(files);
-        },
-        [handleFiles]
-    );
-
-    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            handleFiles(Array.from(e.target.files));
-        }
-    };
-
-    const deleteImage = (id: string) => {
-        setImages((prev) => prev.filter((img) => img.id !== id));
-    };
-
-    const openLabelDialog = (image: ImageFile) => {
-        setSelectedImage(image);
+    const openLabelDialog = (image: LabeledImage) => {
+        setSelectedImageId(image.id);
+        // Pre-fill with existing labels; use AI counts as defaults if human counts aren't set
+        const aiBirds = image.aiBirdCount ? image.aiBirdCount.split(" ")[0] : "";
+        const aiNests = image.aiNestCount ? image.aiNestCount.split(" ")[0] : "";
         setLabelForm({
             species: image.species || "",
             location: image.location || "",
-            birdCount: image.birdCount?.toString() || "",
-            nestCount: image.nestCount?.toString() || "",
+            birdCount: aiBirds,
+            nestCount: aiNests,
             colonyName: image.colonyName || "",
             notes: image.notes || "",
         });
         setLabelDialogOpen(true);
     };
 
-    const saveLabels = () => {
+    const saveLabelsHandler = () => {
         if (!selectedImage) return;
-
-        setImages((prev) =>
-            prev.map((img) =>
-                img.id === selectedImage.id
-                    ? {
-                        ...img,
-                        species: labelForm.species || undefined,
-                        location: labelForm.location || undefined,
-                        birdCount: labelForm.birdCount ? parseInt(labelForm.birdCount) : undefined,
-                        nestCount: labelForm.nestCount ? parseInt(labelForm.nestCount) : undefined,
-                        colonyName: labelForm.colonyName || undefined,
-                        notes: labelForm.notes || undefined,
-                        isLabeled: !!(labelForm.species || labelForm.birdCount || labelForm.colonyName),
-                    }
-                    : img
-            )
-        );
+        updateLabels(selectedImage.id, {
+            species: labelForm.species || undefined,
+            location: labelForm.location || undefined,
+            colonyName: labelForm.colonyName || undefined,
+            notes: labelForm.notes || undefined,
+        });
         setLabelDialogOpen(false);
-        setSelectedImage(null);
+        setSelectedImageId(null);
     };
 
-    const labeledCount = images.filter((img) => img.isLabeled).length;
-    const unlabeledCount = images.length - labeledCount;
+    const labeledCount = galleryImages.filter(isLabeled).length;
+    const unlabeledCount = galleryImages.length - labeledCount;
 
-    return (
-        <div className="min-h-screen bg-background">
-            <AdminHeader />
-
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold mb-2">Image Gallery & Labeling</h1>
-                        <p className="text-muted-foreground">
-                            Upload and label aerial survey images with species, counts, and colony data
-                        </p>
+    const content = (
+        <div>
+                {!embedded && (
+                    <div className="mb-4">
+                        <h1 className="text-xl font-bold mb-1">Image Gallery</h1>
+                        <p className="text-sm text-muted-foreground">Label aerial survey images with species and colony data</p>
                     </div>
-                    <div className="flex items-center gap-4">
-                        {/* Stats */}
-                        <div className="hidden sm:flex items-center gap-3">
-                            <Badge variant="secondary" className="gap-1.5 py-1.5">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                                {labeledCount} Labeled
-                            </Badge>
-                            <Badge variant="outline" className="gap-1.5 py-1.5">
-                                <Edit className="h-3.5 w-3.5 text-amber-500" />
-                                {unlabeledCount} Need Labels
-                            </Badge>
-                        </div>
-                        {/* View Toggle */}
-                        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-                            <Button
-                                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                                size="sm"
-                                onClick={() => setViewMode("grid")}
-                            >
-                                <Grid className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant={viewMode === "list" ? "secondary" : "ghost"}
-                                size="sm"
-                                onClick={() => setViewMode("list")}
-                            >
-                                <List className="h-4 w-4" />
-                            </Button>
-                        </div>
+                )}
+
+                {/* Compact toolbar */}
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" />{labeledCount} labeled</span>
+                        <span className="text-border">|</span>
+                        <span className="flex items-center gap-1"><Edit className="h-3 w-3 text-amber-500" />{unlabeledCount} unlabeled</span>
+                        <span className="text-border">|</span>
+                        <span>{galleryImages.length} total approved</span>
+                    </div>
+                    <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded">
+                        <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="sm" className="h-6 w-6 p-0" onClick={() => setViewMode("grid")}>
+                            <Grid className="h-3 w-3" />
+                        </Button>
+                        <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="sm" className="h-6 w-6 p-0" onClick={() => setViewMode("list")}>
+                            <List className="h-3 w-3" />
+                        </Button>
                     </div>
                 </div>
-
-                {/* Upload Zone */}
-                <Card className="glass-card mb-8">
-                    <CardContent className="p-6">
-                        <div
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${isDragging
-                                ? "border-primary bg-primary/10"
-                                : "border-border/50 hover:border-border hover:bg-muted/30"
-                                }`}
-                        >
-                            <input
-                                type="file"
-                                multiple
-                                accept="image/*"
-                                onChange={handleFileInput}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-
-                            <div className="flex flex-col items-center gap-3">
-                                <Camera
-                                    className={`h-10 w-10 ${isDragging ? "text-primary" : "text-muted-foreground"}`}
-                                />
-                                <div>
-                                    <p className="font-medium">
-                                        {isDragging ? "Drop images here" : "Upload Survey Images"}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Drag & drop or click to browse (JPG, PNG, TIFF)
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
 
                 {/* Image Gallery */}
                 {viewMode === "grid" ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {images.map((image) => (
+                        {galleryImages.map((image) => {
+                            const labeled = isLabeled(image);
+                            return (
                             <Card
                                 key={image.id}
-                                className={`overflow-hidden group cursor-pointer transition-all hover:shadow-lg ${!image.isLabeled ? "ring-2 ring-amber-500/50" : ""
+                                className={`overflow-hidden group cursor-pointer transition-all hover:shadow-lg ${!labeled ? "ring-2 ring-amber-500/50" : ""
                                     }`}
                                 onClick={() => openLabelDialog(image)}
                             >
                                 <div className="aspect-square relative overflow-hidden">
                                     <img
-                                        src={image.preview}
-                                        alt={image.name}
+                                        src={image.imageUrl}
+                                        alt={image.fileName}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     />
-                                    {/* Status Badge */}
-                                    <div className="absolute top-2 left-2">
-                                        {image.isLabeled ? (
+                                    {/* Status Badges */}
+                                    <div className="absolute top-2 left-2 flex items-center gap-1">
+                                        {labeled ? (
                                             <Badge className="bg-green-500/90 text-white gap-1">
                                                 <CheckCircle2 className="h-3 w-3" />
                                                 Labeled
@@ -340,6 +172,12 @@ export default function AdminImages() {
                                                 Needs Label
                                             </Badge>
                                         )}
+                                        {image.aiStatus === "done" && (
+                                            <Badge className="bg-blue-500/90 text-white gap-1">
+                                                <Bot className="h-3 w-3" />
+                                                AI
+                                            </Badge>
+                                        )}
                                     </div>
                                     {/* Hover Actions */}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
@@ -347,61 +185,40 @@ export default function AdminImages() {
                                             <Edit className="h-4 w-4" />
                                             Edit Labels
                                         </Button>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="icon"
-                                                variant="secondary"
-                                                className="h-8 w-8"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                }}
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                size="icon"
-                                                variant="destructive"
-                                                className="h-8 w-8"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    deleteImage(image.id);
-                                                }}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
                                     </div>
                                 </div>
                                 {/* Info */}
                                 <CardContent className="p-3">
-                                    <p className="text-sm font-medium truncate mb-1">{image.name}</p>
-                                    {image.isLabeled ? (
-                                        <div className="space-y-1 text-xs text-muted-foreground">
-                                            {image.species && (
-                                                <div className="flex items-center gap-1">
-                                                    <Bird className="h-3 w-3" />
-                                                    {image.species}
-                                                </div>
-                                            )}
-                                            {image.birdCount !== undefined && (
-                                                <div className="flex items-center gap-1">
-                                                    <Hash className="h-3 w-3" />
-                                                    {image.birdCount} birds, {image.nestCount || 0} nests
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-amber-500">Click to add labels</p>
-                                    )}
+                                    <p className="text-sm font-medium truncate mb-1">{image.fileName}</p>
+                                    <div className="space-y-1 text-xs text-muted-foreground">
+                                        {image.species && (
+                                            <div className="flex items-center gap-1">
+                                                <Bird className="h-3 w-3" />
+                                                {image.species}
+                                            </div>
+                                        )}
+                                        {image.aiBirdCount && (
+                                            <div className="flex items-center gap-1">
+                                                <Bot className="h-3 w-3 text-blue-400" />
+                                                {image.aiBirdCount.split(" ")[0]} birds
+                                            </div>
+                                        )}
+                                        {!image.species && !image.aiBirdCount && (
+                                            <p className="text-amber-500">Click to add labels</p>
+                                        )}
+                                    </div>
                                 </CardContent>
                             </Card>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
                     <Card className="glass-card">
                         <CardContent className="p-0">
                             <div className="divide-y divide-border/50">
-                                {images.map((image) => (
+                                {galleryImages.map((image) => {
+                                    const labeled = isLabeled(image);
+                                    return (
                                     <div
                                         key={image.id}
                                         className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors cursor-pointer"
@@ -409,16 +226,16 @@ export default function AdminImages() {
                                     >
                                         <div className="relative">
                                             <img
-                                                src={image.preview}
-                                                alt={image.name}
+                                                src={image.imageUrl}
+                                                alt={image.fileName}
                                                 className="w-20 h-20 object-cover rounded-lg"
                                             />
-                                            {!image.isLabeled && (
+                                            {!labeled && (
                                                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full border-2 border-background" />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-medium truncate">{image.name}</p>
+                                            <p className="font-medium truncate">{image.fileName}</p>
                                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
                                                 {image.species && (
                                                     <span className="flex items-center gap-1">
@@ -432,60 +249,56 @@ export default function AdminImages() {
                                                         {image.colonyName}
                                                     </span>
                                                 )}
-                                                {image.birdCount !== undefined && (
+                                                {image.aiBirdCount && (
                                                     <span className="flex items-center gap-1">
-                                                        <Hash className="h-3.5 w-3.5" />
-                                                        {image.birdCount} birds
+                                                        <Bot className="h-3.5 w-3.5 text-blue-400" />
+                                                        {image.aiBirdCount.split(" ")[0]} birds
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
-                                        {image.isLabeled ? (
-                                            <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-                                                Labeled
-                                            </Badge>
-                                        ) : (
-                                            <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30">
-                                                Needs Label
-                                            </Badge>
-                                        )}
                                         <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openLabelDialog(image);
-                                                }}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    deleteImage(image.id);
-                                                }}
-                                            >
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
+                                            {labeled ? (
+                                                <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
+                                                    Labeled
+                                                </Badge>
+                                            ) : (
+                                                <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30">
+                                                    Needs Label
+                                                </Badge>
+                                            )}
+                                            {image.aiStatus === "done" && (
+                                                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 gap-1">
+                                                    <Bot className="h-3 w-3" />
+                                                    AI
+                                                </Badge>
+                                            )}
                                         </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openLabelDialog(image);
+                                            }}
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
-                {images.length === 0 && (
+                {galleryImages.length === 0 && (
                     <div className="text-center py-16">
                         <Camera className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No images yet</h3>
-                        <p className="text-muted-foreground">Upload survey images to get started</p>
+                        <h3 className="text-lg font-semibold mb-2">No approved images yet</h3>
+                        <p className="text-muted-foreground">Approve photos in the Review tab to see them here</p>
                     </div>
                 )}
-            </main>
 
             {/* Label Dialog */}
             <Dialog open={labelDialogOpen} onOpenChange={setLabelDialogOpen}>
@@ -503,17 +316,45 @@ export default function AdminImages() {
                             </DialogHeader>
 
                             <div className="grid md:grid-cols-2 gap-6 py-4">
-                                {/* Image Preview */}
-                                <div>
-                                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-muted mb-3">
+                                {/* Image Preview + AI info */}
+                                <div className="space-y-3">
+                                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-muted">
                                         <img
-                                            src={selectedImage.preview}
-                                            alt={selectedImage.name}
+                                            src={selectedImage.imageUrl}
+                                            alt={selectedImage.fileName}
                                             className="w-full h-full object-cover"
                                         />
                                     </div>
-                                    <p className="text-sm font-medium truncate">{selectedImage.name}</p>
-                                    <p className="text-xs text-muted-foreground">{selectedImage.size}</p>
+                                    <p className="text-sm font-medium truncate">{selectedImage.fileName}</p>
+
+                                    {/* AI heatmap if available */}
+                                    {selectedImage.aiVisualization && (
+                                        <div className="rounded-lg overflow-hidden border border-blue-500/20">
+                                            <p className="text-xs text-muted-foreground px-2 py-1 bg-blue-500/10 flex items-center gap-1">
+                                                <Bot className="h-3 w-3" />
+                                                AI Density Heatmap
+                                            </p>
+                                            <img
+                                                src={selectedImage.aiVisualization}
+                                                alt="AI density heatmap"
+                                                className="w-full object-contain"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* AI counts summary */}
+                                    {selectedImage.aiStatus === "done" && (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="p-2 rounded-lg bg-blue-500/10 text-center">
+                                                <p className="text-xs text-muted-foreground"><Bot className="h-3 w-3 inline mr-1" />Birds</p>
+                                                <p className="font-bold text-blue-400">{selectedImage.aiBirdCount?.split(" ")[0] || "—"}</p>
+                                            </div>
+                                            <div className="p-2 rounded-lg bg-blue-500/10 text-center">
+                                                <p className="text-xs text-muted-foreground"><Bot className="h-3 w-3 inline mr-1" />Nests</p>
+                                                <p className="font-bold text-blue-400">{selectedImage.aiNestCount?.split(" ")[0] || "—"}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Label Form */}
@@ -564,37 +405,25 @@ export default function AdminImages() {
                                         </Select>
                                     </div>
 
-                                    {/* Bird & Nest Counts */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-2">
-                                            <Label className="flex items-center gap-2">
-                                                <Hash className="h-4 w-4" />
-                                                Bird Count
-                                            </Label>
-                                            <Input
-                                                type="number"
-                                                placeholder="0"
-                                                value={labelForm.birdCount}
-                                                onChange={(e) =>
-                                                    setLabelForm({ ...labelForm, birdCount: e.target.value })
-                                                }
-                                            />
+                                    {/* AI-suggested counts (read-only display) */}
+                                    {selectedImage.aiStatus === "done" && (
+                                        <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                                            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                                                <Bot className="h-3 w-3 text-blue-400" />
+                                                AI-suggested counts (from density model)
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <div>
+                                                    <span className="text-muted-foreground">Birds:</span>{" "}
+                                                    <span className="font-medium">{selectedImage.aiBirdCount || "—"}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted-foreground">Nests:</span>{" "}
+                                                    <span className="font-medium">{selectedImage.aiNestCount || "—"}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="flex items-center gap-2">
-                                                <Home className="h-4 w-4" />
-                                                Nest Count
-                                            </Label>
-                                            <Input
-                                                type="number"
-                                                placeholder="0"
-                                                value={labelForm.nestCount}
-                                                onChange={(e) =>
-                                                    setLabelForm({ ...labelForm, nestCount: e.target.value })
-                                                }
-                                            />
-                                        </div>
-                                    </div>
+                                    )}
 
                                     {/* Location */}
                                     <div className="space-y-2">
@@ -628,7 +457,7 @@ export default function AdminImages() {
                                 <Button variant="outline" onClick={() => setLabelDialogOpen(false)}>
                                     Cancel
                                 </Button>
-                                <Button onClick={saveLabels} className="gap-2">
+                                <Button onClick={saveLabelsHandler} className="gap-2">
                                     <Save className="h-4 w-4" />
                                     Save Labels
                                 </Button>
@@ -637,6 +466,17 @@ export default function AdminImages() {
                     )}
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+
+    if (embedded) return content;
+
+    return (
+        <div className="min-h-screen bg-background">
+            <AdminHeader />
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
+                {content}
+            </main>
         </div>
     );
 }

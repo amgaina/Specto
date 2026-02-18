@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { usePipeline } from "@/context/PipelineContext";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ interface UploadedPhoto {
 }
 
 export default function PublicUpload() {
+    const { addSubmission } = usePipeline();
     const [isDragging, setIsDragging] = useState(false);
     const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
     const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
@@ -100,6 +102,20 @@ export default function PublicUpload() {
             // Calculate credits (5 base + 5 bonus if species identified)
             const credits = 5 + (photo.species ? 5 : 0);
             updatePhoto(photo.id, { status: "success", credits });
+
+            // Push to pipeline context for admin review
+            const stored = localStorage.getItem("specto-user");
+            const user = stored ? JSON.parse(stored) : null;
+            addSubmission({
+                fileName: photo.file.name,
+                imageUrl: photo.preview,
+                imageFile: photo.file,
+                source: "citizen",
+                submittedBy: user ? { name: user.name || "Citizen", email: user.email || "" } : undefined,
+                species: photo.species,
+                location: photo.location,
+                notes: photo.notes,
+            });
         }
 
         // Update user credits in localStorage
@@ -123,7 +139,7 @@ export default function PublicUpload() {
         <div className="min-h-screen bg-background">
             <PublicHeader />
 
-            <main className="container mx-auto px-4 lg:px-8 pt-24 pb-12">
+            <main className="container mx-auto px-4 lg:px-8 pt-12 pb-12">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Upload Wildlife Photos</h1>
                     <p className="text-muted-foreground">

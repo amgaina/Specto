@@ -117,7 +117,7 @@ export function MonthlyActivityChart({ className }: MonthlyActivityChartProps) {
             </div>
 
             {/* Chart */}
-            <div className="h-[250px]">
+            <div className="h-[250px] overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <defs>
