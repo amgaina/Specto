@@ -303,6 +303,37 @@ export default function AdminImages({ embedded = false }: { embedded?: boolean }
         if (selectedAnnotation === id) setSelectedAnnotation(null);
     };
 
+    // Window-level mouse listeners so drag/pan doesn't get stuck when cursor leaves the canvas
+    useEffect(() => {
+        if (!isPanning && !isDrawing && !isDraggingSlider) return;
+
+        const handleWindowMouseMove = (e: MouseEvent) => {
+            if (isDraggingSlider) {
+                handleSliderDrag(e);
+                return;
+            }
+            if (isPanning) {
+                setPan({
+                    x: panStart.current.panX + (e.clientX - panStart.current.x),
+                    y: panStart.current.panY + (e.clientY - panStart.current.y),
+                });
+            }
+        };
+
+        const handleWindowMouseUp = () => {
+            setIsPanning(false);
+            setIsDrawing(false);
+            setIsDraggingSlider(false);
+        };
+
+        window.addEventListener("mousemove", handleWindowMouseMove);
+        window.addEventListener("mouseup", handleWindowMouseUp);
+        return () => {
+            window.removeEventListener("mousemove", handleWindowMouseMove);
+            window.removeEventListener("mouseup", handleWindowMouseUp);
+        };
+    }, [isPanning, isDrawing, isDraggingSlider, handleSliderDrag]);
+
     // Species tag management
     const addSpeciesTag = (species: string) => {
         if (!speciesTags.includes(species)) {
