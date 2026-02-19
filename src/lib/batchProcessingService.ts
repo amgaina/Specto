@@ -83,32 +83,34 @@ export async function processBatch(
     return job;
 }
 
-// Mock S3 scan for demo
+// Mock S3 scan — matches real TWI bucket structure at s3://twi-aviandata/
+// Real bucket is public (--no-sign-request), contains /avian_monitoring/high_resolution_photos/{year}/
 export function mockS3Scan(bucket: string): Promise<{ folders: string[]; totalImages: number; totalSize: string }> {
     return new Promise(resolve => {
         setTimeout(() => {
             resolve({
                 folders: [
-                    `${bucket}/surveys/2024-03-15/`,
-                    `${bucket}/surveys/2024-06-22/`,
-                    `${bucket}/surveys/2024-09-10/`,
-                    `${bucket}/surveys/2023-04-01/`,
-                    `${bucket}/surveys/2023-07-18/`,
+                    `${bucket}/avian_monitoring/high_resolution_photos/2018/`,
+                    `${bucket}/avian_monitoring/high_resolution_photos/2019/`,
+                    `${bucket}/avian_monitoring/high_resolution_photos/2020/`,
+                    `${bucket}/avian_monitoring/high_resolution_photos/2021/`,
+                    `${bucket}/avian_monitoring/screenshots/2018/`,
+                    `${bucket}/avian_monitoring/screenshots/2019/`,
                 ],
-                totalImages: 2847,
-                totalSize: "12.4 GB",
+                totalImages: 42_847,
+                totalSize: "187.3 GB",
             });
         }, 1500);
     });
 }
 
-// Mock batch for demo — simulates processing completed batches
+// Mock completed jobs — TWI real colony names for consistency
 export function getMockCompletedJobs(): BatchJob[] {
     return [
         {
             id: "mock-1",
             source: "s3",
-            sourceName: "s3://twi-aviandata/surveys/2024-06-22/",
+            sourceName: "s3://twi-aviandata/surveys/2024-06-22/ — Raccoon Island + Queen Bess",
             files: [],
             status: "completed",
             progress: 100,
@@ -119,7 +121,7 @@ export function getMockCompletedJobs(): BatchJob[] {
         {
             id: "mock-2",
             source: "s3",
-            sourceName: "s3://twi-aviandata/surveys/2024-03-15/",
+            sourceName: "s3://twi-aviandata/surveys/2024-03-15/ — Breton + Gosier Islands",
             files: [],
             status: "completed",
             progress: 100,
@@ -130,7 +132,7 @@ export function getMockCompletedJobs(): BatchJob[] {
         {
             id: "mock-3",
             source: "drive",
-            sourceName: "Google Drive / Field Reports 2023",
+            sourceName: "Google Drive / Felicity Island Field Reports 2023",
             files: [],
             status: "completed",
             progress: 100,

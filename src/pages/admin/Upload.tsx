@@ -4,16 +4,49 @@ import { AdminHeader } from "@/components/layout/AdminHeader";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Upload, Image, CheckCircle2, XCircle,
     Clock, Cloud, HardDrive, FolderOpen, Play, Bird, Home,
-    Loader2,
+    Loader2, ArrowRight, MapPin, Bot,
 } from "lucide-react";
 import {
     processBatch, mockS3Scan, getMockCompletedJobs,
     type BatchJob,
 } from "@/lib/batchProcessingService";
+import { generateMockBatch } from "@/lib/mockDataGenerator";
+import { extractExifGeo, generateDemoGeo } from "@/lib/exifService";
+import { toast } from "@/components/ui/sonner";
+
+// --- Types ---
+
+interface ImportSummary {
+    totalImages: number;
+    totalBirds: number;
+    totalNests: number;
+    speciesList: string[];
+    coloniesList: string[];
+    gpsCount: number;
+    modelInfo: string;
+    folderCount: number;
+}
+
+// --- Staged pipeline simulation ---
+
+const IMPORT_STAGES = [
+    { label: "Connecting to source...",        progress: 8,  delay: 600  },
+    { label: "Authenticating credentials...",  progress: 15, delay: 400  },
+    { label: "Scanning folder manifest...",    progress: 22, delay: 700  },
+    { label: "Downloading imagery...",         progress: 40, delay: 1100 },
+    { label: "Running CSRNet-VGG16 model...",  progress: 58, delay: 1400 },
+    { label: "Counting birds & nests...",      progress: 72, delay: 1000 },
+    { label: "Extracting GPS geo-tags...",     progress: 83, delay: 800  },
+    { label: "Mapping to colony sites...",     progress: 91, delay: 600  },
+    { label: "Building dataset records...",    progress: 97, delay: 500  },
+];
+
+// --- Component ---
 
 export default function AdminUpload({ embedded = false }: { embedded?: boolean }) {
     const { addBatchResults } = usePipeline();
@@ -21,6 +54,10 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
     const [jobs, setJobs] = useState<BatchJob[]>(getMockCompletedJobs());
     const [isDragging, setIsDragging] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+    // Real-time pipeline tracking
+    const [jobStages, setJobStages] = useState<Record<string, string>>({});
+    const [jobSummaries, setJobSummaries] = useState<Record<string, ImportSummary>>({});
 
     // S3 state
     const [s3Bucket, setS3Bucket] = useState("s3://twi-aviandata");
@@ -31,6 +68,7 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
     // Drive state
     const [driveConnected, setDriveConnected] = useState(false);
     const [driveScanning, setDriveScanning] = useState(false);
+    const [driveSelectedFolders, setDriveSelectedFolders] = useState<Set<string>>(new Set());
 
     const handleS3Connect = async () => {
         setS3Scanning(true);
@@ -40,53 +78,139 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
         setS3Scanning(false);
     };
 
-    const handleS3Import = () => {
+    // --- Shared cloud import handler with staged progress ---
+
+    const runImport = (
+        source: "s3" | "drive",
+        sourceName: string,
+        selectedFolders: Set<string>,
+    ) => {
+        const imagesPerFolder = 8;
+        const totalImages = selectedFolders.size * imagesPerFolder;
+
         const mockJob: BatchJob = {
             id: crypto.randomUUID(),
-            source: "s3",
-            sourceName: `${s3Bucket}/surveys/ (${s3SelectedFolders.size} folders)`,
+            source,
+            sourceName,
             files: [],
             status: "processing",
             progress: 0,
             startedAt: new Date(),
-            results: { totalImages: s3SelectedFolders.size * 450, processedImages: 0, totalBirds: 0, totalNests: 0, errors: 0 },
+            results: { totalImages, processedImages: 0, totalBirds: 0, totalNests: 0, errors: 0 },
         };
 
         setJobs(prev => [mockJob, ...prev]);
         setActiveTab("queue");
 
-        // Simulate processing
-        let progress = 0;
-        const timer = setInterval(() => {
-            progress += Math.random() * 15;
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(timer);
+        // Run staged progression with realistic labels
+        let cumulativeDelay = 0;
+
+        IMPORT_STAGES.forEach((stage, i) => {
+            cumulativeDelay += stage.delay;
+            setTimeout(() => {
+                setJobStages(prev => ({ ...prev, [mockJob.id]: stage.label }));
+
+                // Proportional running stats that tick up
+                const processed = Math.round((stage.progress / 100) * totalImages);
+                const runningBirds = Math.round((stage.progress / 100) * totalImages * 350);
+                const runningNests = Math.round((stage.progress / 100) * totalImages * 240);
+
                 setJobs(prev => prev.map(j =>
                     j.id === mockJob.id
                         ? {
                             ...j,
-                            status: "completed" as const,
-                            progress: 100,
-                            completedAt: new Date(),
+                            progress: stage.progress,
                             results: {
-                                totalImages: s3SelectedFolders.size * 450,
-                                processedImages: s3SelectedFolders.size * 450,
-                                totalBirds: s3SelectedFolders.size * 2800,
-                                totalNests: s3SelectedFolders.size * 1950,
-                                errors: Math.floor(Math.random() * 3),
+                                ...j.results,
+                                processedImages: processed,
+                                totalBirds: i >= 4 ? runningBirds : 0,   // birds appear after AI stage
+                                totalNests: i >= 4 ? runningNests : 0,
                             },
                         }
                         : j
                 ));
-            } else {
-                setJobs(prev => prev.map(j =>
-                    j.id === mockJob.id
-                        ? { ...j, progress: Math.round(progress), results: { ...j.results, processedImages: Math.round((progress / 100) * j.results.totalImages) } }
-                        : j
-                ));
+            }, cumulativeDelay);
+        });
+
+        // Completion — after all stages finish
+        cumulativeDelay += 600;
+        setTimeout(() => {
+            // Generate realistic mock images for each selected folder
+            const allMockImages = Array.from(selectedFolders).flatMap(folder =>
+                generateMockBatch(folder, imagesPerFolder)
+            );
+
+            // Compute real totals from generated data
+            let totalBirds = 0;
+            let totalNests = 0;
+            for (const img of allMockImages) {
+                totalBirds += img.aiBirdCount ? parseInt(img.aiBirdCount.replace(/,/g, "")) : 0;
+                totalNests += img.aiNestCount ? parseInt(img.aiNestCount.replace(/,/g, "")) : 0;
             }
-        }, 600);
+
+            // Aggregate rich summary
+            const speciesSet = new Set(allMockImages.map(img => img.species).filter(Boolean));
+            const colonySet = new Set(allMockImages.map(img => img.colonyName).filter(Boolean));
+            const gpsCount = allMockImages.filter(img => img.location).length;
+            const modelInfo = allMockImages[0]?.aiModelInfo ?? "CSRNet-VGG16 density estimation";
+
+            const summary: ImportSummary = {
+                totalImages: allMockImages.length,
+                totalBirds,
+                totalNests,
+                speciesList: Array.from(speciesSet) as string[],
+                coloniesList: Array.from(colonySet) as string[],
+                gpsCount,
+                modelInfo,
+                folderCount: selectedFolders.size,
+            };
+
+            // Push into pipeline — images appear in Label + Dataset tabs
+            addBatchResults(allMockImages);
+
+            // Store summary for rich card
+            setJobSummaries(prev => ({ ...prev, [mockJob.id]: summary }));
+            setJobStages(prev => ({ ...prev, [mockJob.id]: "" }));
+
+            // Update job to completed
+            setJobs(prev => prev.map(j =>
+                j.id === mockJob.id
+                    ? {
+                        ...j,
+                        status: "completed" as const,
+                        progress: 100,
+                        completedAt: new Date(),
+                        results: {
+                            totalImages: allMockImages.length,
+                            processedImages: allMockImages.length,
+                            totalBirds,
+                            totalNests,
+                            errors: 0,
+                        },
+                    }
+                    : j
+            ));
+
+            // Fire toast notification with CTA
+            toast.success(`Import complete — ${summary.totalImages} images analyzed`, {
+                description: `${summary.speciesList.length} species across ${summary.coloniesList.length} colonies. ${totalBirds.toLocaleString()} birds counted.`,
+                duration: 8000,
+                action: {
+                    label: "Go to Label tab →",
+                    onClick: () => {
+                        window.dispatchEvent(new CustomEvent("pipeline-navigate", { detail: "gallery" }));
+                    },
+                },
+            });
+        }, cumulativeDelay);
+    };
+
+    const handleS3Import = () => {
+        runImport(
+            "s3",
+            `${s3Bucket}/surveys/ (${s3SelectedFolders.size} folders)`,
+            s3SelectedFolders,
+        );
     };
 
     const handleDriveConnect = () => {
@@ -95,6 +219,20 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
             setDriveConnected(true);
             setDriveScanning(false);
         }, 2000);
+    };
+
+    const driveFolders = [
+        { name: "Field Reports 2024-05-18", count: 200 },
+        { name: "Aerial Surveys 2024-03-15", count: 180 },
+        { name: "Colony Monitoring 2024-06-01", count: 150 },
+    ];
+
+    const handleDriveImport = () => {
+        runImport(
+            "drive",
+            `Google Drive (${driveSelectedFolders.size} folders)`,
+            driveSelectedFolders,
+        );
     };
 
     // Batch upload handlers
@@ -125,19 +263,30 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
             });
         });
 
-        // Push completed batch results into the pipeline context
+        // Push completed batch results into the pipeline context, enriched with EXIF geo
         if (completedJob && completedJob.files) {
-            const batchEntries = completedJob.files
-                .filter(f => f.status === "completed" && f.file)
-                .map(f => ({
-                    fileName: f.name,
-                    imageUrl: URL.createObjectURL(f.file!),
-                    imageFile: f.file!,
-                    aiBirdCount: f.prediction?.birdCount,
-                    aiNestCount: f.prediction?.nestCount,
-                    aiVisualization: f.prediction?.visualization,
-                    aiModelInfo: f.prediction?.modelInfo,
-                }));
+            const completedFiles = completedJob.files.filter(f => f.status === "completed" && f.file);
+            const batchEntries = await Promise.all(
+                completedFiles.map(async (f, i) => {
+                    // Try real EXIF first, fall back to demo geo
+                    const exif = await extractExifGeo(f.file!);
+                    const geo = exif.lat ? exif : generateDemoGeo(i);
+
+                    return {
+                        fileName: f.name,
+                        imageUrl: URL.createObjectURL(f.file!),
+                        imageFile: f.file!,
+                        aiBirdCount: f.prediction?.birdCount,
+                        aiNestCount: f.prediction?.nestCount,
+                        aiVisualization: f.prediction?.visualization,
+                        aiModelInfo: f.prediction?.modelInfo,
+                        location: geo.locationString,
+                        colonyName: geo.colonyName,
+                        species: geo.suggestedSpecies,
+                        notes: geo.region ? `${geo.region} — GPS auto-detected from EXIF` : undefined,
+                    };
+                })
+            );
             if (batchEntries.length > 0) {
                 addBatchResults(batchEntries);
             }
@@ -275,17 +424,36 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
                                         )}
                                     </Button>
                                 ) : (
-                                    <div className="space-y-1">
+                                    <div className="space-y-2">
                                         <div className="flex items-center gap-2 text-xs text-green-500 mb-2">
                                             <CheckCircle2 className="h-3 w-3" /> Connected
                                         </div>
-                                        {["Field Reports 2024", "Aerial Surveys Q1", "Colony Monitoring"].map(folder => (
-                                            <div key={folder} className="flex items-center gap-2 p-1.5 rounded text-xs hover:bg-muted/50 cursor-pointer">
-                                                <FolderOpen className="h-3 w-3 text-muted-foreground" />
-                                                <span>{folder}</span>
-                                                <span className="ml-auto text-muted-foreground">~200</span>
-                                            </div>
-                                        ))}
+                                        <div className="space-y-0.5">
+                                            {driveFolders.map(folder => (
+                                                <button
+                                                    key={folder.name}
+                                                    onClick={() => {
+                                                        const next = new Set(driveSelectedFolders);
+                                                        next.has(folder.name) ? next.delete(folder.name) : next.add(folder.name);
+                                                        setDriveSelectedFolders(next);
+                                                    }}
+                                                    className={`w-full flex items-center gap-2 p-1.5 rounded text-xs text-left transition-all ${driveSelectedFolders.has(folder.name)
+                                                        ? "bg-primary/10 text-primary"
+                                                        : "hover:bg-muted/50 text-muted-foreground"
+                                                    }`}
+                                                >
+                                                    <FolderOpen className="h-3 w-3 shrink-0" />
+                                                    <span className="truncate">{folder.name}</span>
+                                                    <span className="ml-auto">~{folder.count}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {driveSelectedFolders.size > 0 && (
+                                            <Button size="sm" onClick={handleDriveImport} className="w-full gap-1.5 text-xs">
+                                                <Play className="h-3 w-3" />
+                                                Import {driveSelectedFolders.size} folders
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -365,37 +533,145 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
                     </TabsContent>
 
                     {/* Processing Queue Tab */}
-                    <TabsContent value="queue" className="space-y-2 mt-0">
+                    <TabsContent value="queue" className="space-y-3 mt-0">
                         {jobs.length === 0 ? (
                             <div className="py-8 text-center text-sm text-muted-foreground">
                                 <HardDrive className="h-8 w-8 mx-auto mb-2 opacity-30" />
                                 No processing jobs yet
                             </div>
                         ) : (
-                            jobs.map(job => (
-                                <div key={job.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50">
-                                    <div className="shrink-0">
-                                        {job.status === "completed" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                                        {job.status === "processing" && <Loader2 className="h-4 w-4 text-primary animate-spin" />}
-                                        {job.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
-                                        {job.status === "queued" && <Clock className="h-4 w-4 text-amber-500" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                            <p className="text-sm font-medium truncate">{job.sourceName}</p>
+                            jobs.map(job => {
+                                const stage = jobStages[job.id];
+                                const summary = jobSummaries[job.id];
+
+                                return (
+                                    <div key={job.id} className="rounded-lg border border-border/50 overflow-hidden">
+                                        {/* Header row */}
+                                        <div className="flex items-center gap-3 p-3">
+                                            <div className="shrink-0">
+                                                {job.status === "completed" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                                {job.status === "processing" && <Loader2 className="h-4 w-4 text-primary animate-spin" />}
+                                                {job.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
+                                                {job.status === "queued" && <Clock className="h-4 w-4 text-amber-500" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate">{job.sourceName}</p>
+                                                {/* Live stage label */}
+                                                {job.status === "processing" && stage && (
+                                                    <p className="text-xs text-primary mt-0.5 animate-pulse">{stage}</p>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground shrink-0">
+                                                {job.completedAt
+                                                    ? job.completedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                                    : job.status === "processing" ? `${job.progress}%` : ""}
+                                            </span>
                                         </div>
+
+                                        {/* Progress bar + live stats during processing */}
                                         {job.status === "processing" && (
-                                            <Progress value={job.progress} className="h-1 mb-1" />
+                                            <div className="px-3 pb-3 space-y-2">
+                                                <Progress value={job.progress} className="h-1.5" />
+                                                <div className="flex gap-3 text-xs text-muted-foreground">
+                                                    <span className="flex items-center gap-1">
+                                                        <Image className="h-3 w-3" />
+                                                        {job.results.processedImages}/{job.results.totalImages} images
+                                                    </span>
+                                                    {job.results.totalBirds > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Bird className="h-3 w-3 text-primary" />
+                                                            {job.results.totalBirds.toLocaleString()} birds
+                                                        </span>
+                                                    )}
+                                                    {job.results.totalNests > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Home className="h-3 w-3 text-amber-500" />
+                                                            {job.results.totalNests.toLocaleString()} nests
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
-                                        <div className="flex gap-3 text-[10px] text-muted-foreground">
-                                            <span>{job.results.processedImages}/{job.results.totalImages} img</span>
-                                            <span>{job.results.totalBirds.toLocaleString()} birds</span>
-                                            <span>{job.results.totalNests.toLocaleString()} nests</span>
-                                            {job.results.errors > 0 && <span className="text-destructive">{job.results.errors} err</span>}
-                                        </div>
+
+                                        {/* Rich completion summary */}
+                                        {job.status === "completed" && summary && (
+                                            <div className="px-3 pb-3 space-y-2.5 border-t border-border/30 pt-2.5">
+                                                {/* Stats grid */}
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div className="rounded-md bg-green-500/10 p-2 text-center">
+                                                        <p className="text-sm font-bold text-green-500">{summary.totalImages}</p>
+                                                        <p className="text-[10px] text-muted-foreground">images</p>
+                                                    </div>
+                                                    <div className="rounded-md bg-primary/10 p-2 text-center">
+                                                        <p className="text-sm font-bold text-primary">{summary.totalBirds.toLocaleString()}</p>
+                                                        <p className="text-[10px] text-muted-foreground">birds counted</p>
+                                                    </div>
+                                                    <div className="rounded-md bg-amber-500/10 p-2 text-center">
+                                                        <p className="text-sm font-bold text-amber-500">{summary.totalNests.toLocaleString()}</p>
+                                                        <p className="text-[10px] text-muted-foreground">nests detected</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Species detected */}
+                                                {summary.speciesList.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {summary.speciesList.slice(0, 5).map(sp => (
+                                                            <Badge key={sp} variant="secondary" className="gap-0.5 text-[10px] px-1.5 py-0">
+                                                                <Bird className="h-2.5 w-2.5 text-primary" />
+                                                                {sp}
+                                                            </Badge>
+                                                        ))}
+                                                        {summary.speciesList.length > 5 && (
+                                                            <span className="text-[10px] text-muted-foreground self-center">+{summary.speciesList.length - 5} more</span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Colonies + GPS + Model */}
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                                                    <span className="flex items-center gap-1">
+                                                        <MapPin className="h-2.5 w-2.5" />
+                                                        {summary.coloniesList.length} colonies mapped
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <MapPin className="h-2.5 w-2.5" />
+                                                        {summary.gpsCount} GPS-tagged
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Bot className="h-2.5 w-2.5 text-blue-400" />
+                                                        {summary.modelInfo}
+                                                    </span>
+                                                </div>
+
+                                                {/* CTA */}
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="w-full gap-1.5 text-xs"
+                                                    onClick={() => {
+                                                        // Navigate to Label tab in parent Pipeline
+                                                        const event = new CustomEvent("pipeline-navigate", { detail: "gallery" });
+                                                        window.dispatchEvent(event);
+                                                    }}
+                                                >
+                                                    <ArrowRight className="h-3 w-3" />
+                                                    Review labels in Label tab
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {/* Fallback minimal stats for pre-existing jobs without summary */}
+                                        {job.status === "completed" && !summary && (
+                                            <div className="px-3 pb-3 flex gap-3 text-xs text-muted-foreground">
+                                                <span className="flex items-center gap-1"><Image className="h-3 w-3" />{job.results.processedImages.toLocaleString()} img</span>
+                                                <span className="flex items-center gap-1"><Bird className="h-3 w-3" />{job.results.totalBirds.toLocaleString()} birds</span>
+                                                <span className="flex items-center gap-1"><Home className="h-3 w-3" />{job.results.totalNests.toLocaleString()} nests</span>
+                                                {job.results.errors > 0 && <span className="text-destructive">{job.results.errors} err</span>}
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </TabsContent>
                 </Tabs>
