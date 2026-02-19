@@ -14,6 +14,7 @@ import ManagerDashboard from "./pages/manager/Dashboard";
 import ManagerDataExplorer from "./pages/manager/DataExplorer";
 import ManagerImageAnalysis from "./pages/manager/ImageAnalysis";
 import ManagerSettings from "./pages/manager/Settings";
+import ManagerAlerts from "./pages/manager/Alerts";
 import ManagerMapView from "./pages/manager/MapView";
 
 // Admin Pages
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/manager/data" element={<ManagerDataExplorer />} />
           <Route path="/manager/analysis" element={<ManagerImageAnalysis />} />
           <Route path="/manager/map" element={<ManagerMapView />} />
+          <Route path="/manager/alerts" element={<ManagerAlerts />} />
           <Route path="/manager/settings" element={<ManagerSettings />} />
           <Route path="/manager/depth" element={<Navigate to="/manager/map" replace />} />
 

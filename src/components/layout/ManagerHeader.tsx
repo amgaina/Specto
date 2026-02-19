@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Map, BarChart3, Image, Bird, Database, LogOut, Settings } from "lucide-react";
+import { Menu, X, Map, BarChart3, Image, Bird, Database, LogOut, Settings, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +21,7 @@ const navigation = [
     { name: "Data Explorer", href: "/manager/data", icon: Database },
     { name: "AI Analysis", href: "/manager/analysis", icon: Image },
     { name: "Colony Map", href: "/manager/map", icon: Map },
+    { name: "Alerts", href: "/manager/alerts", icon: Bell },
 ];
 
 export function ManagerHeader({ userName }: ManagerHeaderProps) {
