@@ -83,51 +83,62 @@ export async function processBatch(
     return job;
 }
 
-// Mock S3 scan — matches real TWI bucket structure at s3://twi-aviandata/
-// Real bucket is public (--no-sign-request), contains /avian_monitoring/high_resolution_photos/{year}/
+// Mock S3 scan — matches REAL TWI bucket at s3://twi-aviandata/ (verified Feb 2026)
+// Bucket is public (--no-sign-request)
+// Real structure: /avian_monitoring/high_resolution_photos/{year}/{region}/{colony}/
+// Real years: 2010, 2011, 2012, 2013, 2015, 2018, 2021, 2022, 2023 (no 2014, 2016-17, 2019-20)
+// Real totals: 21,592 high-res images (187.0 GB) + 17,324 screenshots (5.6 GB) = 38,916 images (192.6 GB)
 export function mockS3Scan(bucket: string): Promise<{ folders: string[]; totalImages: number; totalSize: string }> {
     return new Promise(resolve => {
         setTimeout(() => {
             resolve({
                 folders: [
-                    `${bucket}/avian_monitoring/high_resolution_photos/2018/`,
-                    `${bucket}/avian_monitoring/high_resolution_photos/2019/`,
-                    `${bucket}/avian_monitoring/high_resolution_photos/2020/`,
-                    `${bucket}/avian_monitoring/high_resolution_photos/2021/`,
-                    `${bucket}/avian_monitoring/screenshots/2018/`,
-                    `${bucket}/avian_monitoring/screenshots/2019/`,
+                    `${bucket}/avian_monitoring/high_resolution_photos/2010/`,  // 3,115 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2011/`,  // 2,228 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2012/`,  // 1,630 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2013/`,  // 2,056 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2015/`,  // 3,427 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2018/`,  // 1,796 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2021/`,  // 3,958 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2022/`,  // 1,679 images
+                    `${bucket}/avian_monitoring/high_resolution_photos/2023/`,  // 1,703 images
+                    `${bucket}/avian_monitoring/screenshots/2010/`,             // 2,995 images
+                    `${bucket}/avian_monitoring/screenshots/2011/`,             // 1,820 images
+                    `${bucket}/avian_monitoring/screenshots/2018/`,             // 1,772 images
+                    `${bucket}/avian_monitoring/screenshots/2021/`,             // 3,754 images
                 ],
-                totalImages: 42_847,
-                totalSize: "187.3 GB",
+                totalImages: 38_916,
+                totalSize: "192.6 GB",
             });
         }, 1500);
     });
 }
 
-// Mock completed jobs — TWI real colony names for consistency
+// Mock completed jobs — using real TWI bucket paths and colony names
 export function getMockCompletedJobs(): BatchJob[] {
     return [
         {
             id: "mock-1",
             source: "s3",
-            sourceName: "s3://twi-aviandata/surveys/2024-06-22/ — Raccoon Island + Queen Bess",
+            sourceName: "s3://twi-aviandata/avian_monitoring/high_resolution_photos/2018/Terrebonne Bay/",
             files: [],
             status: "completed",
             progress: 100,
             startedAt: new Date(Date.now() - 86400000),
             completedAt: new Date(Date.now() - 82800000),
-            results: { totalImages: 847, processedImages: 847, totalBirds: 12453, totalNests: 8901, errors: 0 },
+            // 2018 Terrebonne Bay has 6 colonies: Raccoon Island, Felicity, Whiskey, East, Philo Brice, Houma Nav Canal
+            results: { totalImages: 312, processedImages: 312, totalBirds: 4831, totalNests: 3576, errors: 0 },
         },
         {
             id: "mock-2",
             source: "s3",
-            sourceName: "s3://twi-aviandata/surveys/2024-03-15/ — Breton + Gosier Islands",
+            sourceName: "s3://twi-aviandata/avian_monitoring/high_resolution_photos/2018/Breton-Chandeleur Islands/",
             files: [],
             status: "completed",
             progress: 100,
             startedAt: new Date(Date.now() - 172800000),
             completedAt: new Date(Date.now() - 169200000),
-            results: { totalImages: 1234, processedImages: 1230, totalBirds: 18762, totalNests: 14205, errors: 4 },
+            results: { totalImages: 287, processedImages: 284, totalBirds: 8940, totalNests: 6812, errors: 3 },
         },
         {
             id: "mock-3",

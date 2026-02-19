@@ -208,7 +208,7 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
     const handleS3Import = () => {
         runImport(
             "s3",
-            `${s3Bucket}/surveys/ (${s3SelectedFolders.size} folders)`,
+            `${s3Bucket}/avian_monitoring/ (${s3SelectedFolders.size} folders)`,
             s3SelectedFolders,
         );
     };
@@ -402,7 +402,7 @@ export default function AdminUpload({ embedded = false }: { embedded?: boolean }
                                         {s3SelectedFolders.size > 0 && (
                                             <Button size="sm" onClick={handleS3Import} className="w-full gap-1.5 text-xs">
                                                 <Play className="h-3 w-3" />
-                                                Import {s3SelectedFolders.size} folders (~{s3SelectedFolders.size * 450} images)
+                                                Import {s3SelectedFolders.size} folder{s3SelectedFolders.size > 1 ? "s" : ""} (~{s3SelectedFolders.size * 8} sample images)
                                             </Button>
                                         )}
                                     </div>

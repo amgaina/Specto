@@ -26,7 +26,6 @@ import {
     Clock,
     MapPin,
     Calendar,
-    User,
     Bird,
     Search,
     Eye,

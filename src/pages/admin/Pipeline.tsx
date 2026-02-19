@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
     Upload, Image, CheckSquare, ArrowRight, Database,
     Bird, MapPin, Bot, Download, Home,
-    CheckCircle2, Clock, Calendar, Globe, Filter,
+    Clock, Calendar, Globe,
     ChevronRight, Layers,
 } from "lucide-react";
 import AdminUpload from "./Upload";

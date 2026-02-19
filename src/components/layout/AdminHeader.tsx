@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Map, Database, Bird, LogOut, Upload, Settings } from "lucide-react";
+import { Menu, X, Map, Database, Bird, LogOut, Upload, Settings, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,10 +17,10 @@ interface AdminHeaderProps {
 }
 
 const navigation = [
-    { name: "Dashboard", href: "/admin", icon: Database },
-    { name: "Pipeline", href: "/admin/pipeline", icon: Upload },
-    { name: "Data Explorer", href: "/admin/data", icon: Database },
-    { name: "Colony Map", href: "/admin/map", icon: Map },
+    { name: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
+    { name: "Pipeline", href: "/admin/pipeline", icon: Upload, exact: false },
+    { name: "Data Explorer", href: "/admin/data", icon: Database, exact: false },
+    { name: "Colony Map", href: "/admin/map", icon: Map, exact: false },
 ];
 
 export function AdminHeader({ userName }: AdminHeaderProps) {
@@ -37,7 +37,8 @@ export function AdminHeader({ userName }: AdminHeaderProps) {
         navigate("/login");
     };
 
-    const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + "/");
+    const isActive = (item: typeof navigation[0]) =>
+        item.exact ? location.pathname === item.href : location.pathname === item.href || location.pathname.startsWith(item.href + "/");
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-xl">
@@ -58,7 +59,7 @@ export function AdminHeader({ userName }: AdminHeaderProps) {
                             to={item.href}
                             className={cn(
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200",
-                                isActive(item.href)
+                                isActive(item)
                                     ? "bg-secondary text-foreground"
                                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                             )}
@@ -111,7 +112,7 @@ export function AdminHeader({ userName }: AdminHeaderProps) {
                                 onClick={() => setMobileMenuOpen(false)}
                                 className={cn(
                                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all",
-                                    isActive(item.href) ? "bg-secondary text-foreground" : "text-muted-foreground"
+                                    isActive(item) ? "bg-secondary text-foreground" : "text-muted-foreground"
                                 )}
                             >
                                 <item.icon className="h-4 w-4" />
