@@ -40,6 +40,7 @@ import {
     EyeOff,
     Columns2,
     ChevronsLeftRight,
+    ExternalLink,
 } from "lucide-react";
 import { COLONIES, SPECIES } from "@/lib/mockDataGenerator";
 
@@ -496,9 +497,37 @@ export default function AdminImages({ embedded = false }: { embedded?: boolean }
                                     </div>
                                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                         {image.colonyName ? (
-                                            <><Home className="h-2.5 w-2.5 text-green-500 shrink-0" /><span className="truncate">{image.colonyName}</span></>
+                                            <>
+                                                <Home className="h-2.5 w-2.5 text-green-500 shrink-0" />
+                                                <span className="truncate" title={[image.colonyName, image.geoRegion].filter(Boolean).join(", ")}>{image.colonyName}</span>
+                                                {image.location && (
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${image.location}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-muted-foreground/40 hover:text-primary transition-colors shrink-0 ml-auto"
+                                                        title={`Open in Maps (${image.location})`}
+                                                        onClick={e => e.stopPropagation()}
+                                                    >
+                                                        <ExternalLink className="h-2.5 w-2.5" />
+                                                    </a>
+                                                )}
+                                            </>
                                         ) : image.location ? (
-                                            <><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{image.location}</span></>
+                                            <>
+                                                <MapPin className="h-2.5 w-2.5 shrink-0" />
+                                                <span className="truncate">{image.location}</span>
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${image.location}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-muted-foreground/40 hover:text-primary transition-colors shrink-0 ml-auto"
+                                                    title="Open in Maps"
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <ExternalLink className="h-2.5 w-2.5" />
+                                                </a>
+                                            </>
                                         ) : (
                                             <span className="text-muted-foreground/40">No location</span>
                                         )}
@@ -976,7 +1005,20 @@ export default function AdminImages({ embedded = false }: { embedded?: boolean }
 
                         {/* Location */}
                         <div className="space-y-1.5">
-                            <label className="flex items-center gap-1.5 text-xs font-medium"><MapPin className="h-3.5 w-3.5" />GPS</label>
+                            <label className="flex items-center gap-1.5 text-xs font-medium">
+                                <MapPin className="h-3.5 w-3.5" />GPS
+                                {location && (
+                                    <a
+                                        href={`https://www.google.com/maps?q=${location}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="ml-auto text-muted-foreground/50 hover:text-primary transition-colors"
+                                        title={`Open in Maps (${location})`}
+                                    >
+                                        <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                )}
+                            </label>
                             <Input placeholder="29.2108 N, 89.2620 W" value={location} onChange={e => setLocation(e.target.value)} className="h-7 text-xs" />
                         </div>
 

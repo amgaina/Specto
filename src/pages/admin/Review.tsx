@@ -34,6 +34,8 @@ import {
     Camera,
     Bot,
     Loader2,
+    ExternalLink,
+    Home,
 } from "lucide-react";
 
 export default function AdminReview({ embedded = false }: { embedded?: boolean }) {
@@ -195,10 +197,24 @@ export default function AdminReview({ embedded = false }: { embedded?: boolean }
                                     )}
                                 </td>
                                 <td className="py-2 px-3">
-                                    {photo.location ? (
+                                    {photo.colonyName || photo.location ? (
                                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                            <MapPin className="h-3 w-3 shrink-0" />
-                                            {photo.location}
+                                            {photo.colonyName ? <Home className="h-3 w-3 text-green-500 shrink-0" /> : <MapPin className="h-3 w-3 shrink-0" />}
+                                            <span className="truncate max-w-[120px]" title={[photo.colonyName, photo.geoRegion, photo.location].filter(Boolean).join(" · ")}>
+                                                {photo.colonyName || photo.location}
+                                            </span>
+                                            {photo.location && (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${photo.location}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-muted-foreground/40 hover:text-primary transition-colors shrink-0"
+                                                    title={`Open in Maps (${photo.location})`}
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            )}
                                         </span>
                                     ) : (
                                         <span className="text-xs text-muted-foreground/50">—</span>
@@ -384,7 +400,25 @@ export default function AdminReview({ embedded = false }: { embedded?: boolean }
                                         </div>
                                         <div className="p-2.5 rounded-lg bg-muted/30">
                                             <p className="text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />Location</p>
-                                            <p className="font-medium text-sm mt-0.5">{selectedPhoto.location || <span className="text-muted-foreground italic">None</span>}</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <p className="font-medium text-sm">
+                                                    {selectedPhoto.colonyName || selectedPhoto.location || <span className="text-muted-foreground italic">None</span>}
+                                                </p>
+                                                {selectedPhoto.location && (
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${selectedPhoto.location}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-muted-foreground/50 hover:text-primary transition-colors shrink-0"
+                                                        title={`Open in Maps (${selectedPhoto.location})`}
+                                                    >
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                            {selectedPhoto.colonyName && selectedPhoto.geoRegion && (
+                                                <p className="text-[10px] text-muted-foreground mt-0.5">{selectedPhoto.geoRegion}</p>
+                                            )}
                                         </div>
                                     </div>
 

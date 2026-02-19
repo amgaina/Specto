@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { usePipeline } from "@/context/PipelineContext";
 import { AdminHeader } from "@/components/layout/AdminHeader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     Upload, Image, CheckSquare, ArrowRight, Database,
     Bird, MapPin, Bot, Download, Home,
-    Clock, Calendar, Globe,
+    Clock, Calendar, Globe, ExternalLink,
     ChevronRight, Layers,
 } from "lucide-react";
 import AdminUpload from "./Upload";
@@ -69,28 +69,6 @@ export default function AdminPipeline() {
                     </div>
 
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full max-w-md grid-cols-4 mb-4 h-9">
-                            <TabsTrigger value="ingest" className="gap-1.5 text-xs">
-                                <Upload className="h-3 w-3" />
-                                Ingest
-                            </TabsTrigger>
-                            <TabsTrigger value="review" className="gap-1.5 text-xs">
-                                <CheckSquare className="h-3 w-3" />
-                                Review
-                                {pendingImages.length > 0 && (
-                                    <span className="h-1.5 w-1.5 bg-amber-500 rounded-full" />
-                                )}
-                            </TabsTrigger>
-                            <TabsTrigger value="gallery" className="gap-1.5 text-xs">
-                                <Image className="h-3 w-3" />
-                                Label
-                            </TabsTrigger>
-                            <TabsTrigger value="dataset" className="gap-1.5 text-xs">
-                                <Database className="h-3 w-3" />
-                                Dataset
-                            </TabsTrigger>
-                        </TabsList>
-
                         <TabsContent value="ingest" className="mt-0">
                             <AdminUpload embedded />
                         </TabsContent>
@@ -344,7 +322,7 @@ function DatasetView() {
                                                     {groupBy !== "year" && <th className="text-left py-1.5 px-3 font-medium">Year</th>}
                                                     <th className="text-right py-1.5 px-3 font-medium">Birds</th>
                                                     <th className="text-right py-1.5 px-3 font-medium">Nests</th>
-                                                    <th className="text-left py-1.5 px-3 font-medium">GPS</th>
+                                                    <th className="text-left py-1.5 px-3 font-medium">Location</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -384,10 +362,28 @@ function DatasetView() {
                                                             </span>
                                                         </td>
                                                         <td className="py-1.5 px-3">
-                                                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                                                                <MapPin className="h-2.5 w-2.5 shrink-0" />
-                                                                <span className="truncate max-w-[90px]">{img.location || "—"}</span>
-                                                            </span>
+                                                            {img.colonyName || img.location ? (
+                                                                <span className="flex items-center gap-1 text-[10px]">
+                                                                    <MapPin className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                                                                    <span className="truncate max-w-[110px]" title={[img.colonyName, img.geoRegion, img.location].filter(Boolean).join(" · ")}>
+                                                                        {img.colonyName || img.location}
+                                                                    </span>
+                                                                    {img.location && (
+                                                                        <a
+                                                                            href={`https://www.google.com/maps?q=${img.location}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-muted-foreground/50 hover:text-primary transition-colors shrink-0"
+                                                                            title={`Open in Maps (${img.location})`}
+                                                                            onClick={e => e.stopPropagation()}
+                                                                        >
+                                                                            <ExternalLink className="h-2.5 w-2.5" />
+                                                                        </a>
+                                                                    )}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] text-muted-foreground/40">—</span>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}
