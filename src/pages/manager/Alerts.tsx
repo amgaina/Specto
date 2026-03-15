@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ManagerHeader } from "@/components/layout/ManagerHeader";
 import {
     Card,
@@ -22,16 +23,24 @@ import {
     Bell,
     BellRing,
     Bird,
+    CalendarPlus,
     ChevronDown,
     ChevronRight,
+    ClipboardList,
     Clock,
+    CloudLightning,
     Eye,
     FileWarning,
     Leaf,
+    Loader2,
+    Map,
     MapPin,
+    Megaphone,
+    Phone,
     Search,
     Shield,
     ShieldAlert,
+    Siren,
     TrendingDown,
     TrendingUp,
     Users,
@@ -39,48 +48,22 @@ import {
     CheckCircle2,
     XCircle,
     Activity,
+    Bookmark,
     Filter,
 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
-
-type AlertSeverity = "critical" | "high" | "medium" | "low" | "info";
-type AlertStatus = "active" | "acknowledged" | "resolved" | "dismissed";
-type AlertCategory =
-    | "population"
-    | "nest"
-    | "behavior"
-    | "health"
-    | "predator"
-    | "habitat"
-    | "citizen"
-    | "data-gap"
-    | "endangered";
-
-interface Alert {
-    id: string;
-    title: string;
-    description: string;
-    category: AlertCategory;
-    severity: AlertSeverity;
-    status: AlertStatus;
-    colony: string;
-    species?: string;
-    region: string;
-    timestamp: Date;
-    action: string;
-    details?: string;
-}
-
-const SPECIES_MAP: Record<string, string> = {
-    FOTE: "Forster's Tern",
-    LAGU: "Laughing Gull",
-    SNEG: "Snowy Egret",
-    TRHE: "Tricolored Heron",
-    BRPE: "Brown Pelican",
-    ROSP: "Roseate Spoonbill",
-    GBHE: "Great Blue Heron",
-    BCNH: "Black-crowned Night Heron",
-};
+import { useData } from "@/hooks/useData";
+import { DataProvider } from "@/context/DataProvider";
+import { SPECIES_NAMES } from "@/lib/dataService";
+import {
+    type Alert,
+    type AlertSeverity,
+    type AlertStatus,
+    type AlertCategory,
+    generateConservationAlerts,
+} from "@/lib/alertService";
+import { fetchWeatherAlerts } from "@/lib/weatherService";
 
 const CATEGORY_CONFIG: Record<
     AlertCategory,
@@ -139,6 +122,12 @@ const CATEGORY_CONFIG: Record<
         icon: Shield,
         color: "text-pink-400",
         bgColor: "bg-pink-500/20",
+    },
+    weather: {
+        label: "Weather Alert",
+        icon: CloudLightning,
+        color: "text-cyan-400",
+        bgColor: "bg-cyan-500/20",
     },
 };
 
@@ -199,241 +188,6 @@ const STATUS_CONFIG: Record<
     },
 };
 
-const mockAlerts: Alert[] = [
-    {
-        id: "ALT-001",
-        title: "Laughing Gull population drop at Biloxi South 2",
-        description:
-            "LAGU population decreased by 43% compared to previous survey period. Nest count dropped from 94 to 33 active nests.",
-        category: "population",
-        severity: "critical",
-        status: "active",
-        colony: "Biloxi South 2",
-        species: "LAGU",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 1800000),
-        action: "Investigate potential environmental stressors or food shortage in the colony area.",
-        details:
-            "Historical data shows LAGU sites at Biloxi South 2 averaging 50-94 nests per survey. The latest reading of 33 represents a 2-standard-deviation drop. Weather data shows recent storm activity in the region.",
-    },
-    {
-        id: "ALT-002",
-        title: "Forster's Tern nest decline — 60% drop in active nests",
-        description:
-            "FOTE active nest count at Biloxi South 2 fell from 99 to 29 nests within a single survey interval. Abandoned nests detected.",
-        category: "nest",
-        severity: "critical",
-        status: "active",
-        colony: "Biloxi South 2",
-        species: "FOTE",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 3600000),
-        action: "Deploy field team to assess nest abandonment causes. Check for oil spill contamination or predation.",
-        details:
-            "Dotting area analysis reveals concentrated nest loss in areas 3-5. EmptyNest counts have surged. Possible correlation with recent petroleum industry activity in adjacent waters.",
-    },
-    {
-        id: "ALT-003",
-        title: "Tricolored Heron nesting in non-traditional location",
-        description:
-            "TRHE detected nesting outside established colony boundaries at Biloxi South 2, Area 5. Birds observed building nests in unusual ground-level positions.",
-        category: "behavior",
-        severity: "medium",
-        status: "acknowledged",
-        colony: "Biloxi South 2",
-        species: "TRHE",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 7200000),
-        action: "Monitor new nesting sites and evaluate habitat suitability. Consider expanding protected zone.",
-        details:
-            "TRHE typically nests in elevated vegetation. Ground-level nesting may indicate habitat stress or lack of suitable nesting substrate. 18 active nests observed in new area.",
-    },
-    {
-        id: "ALT-004",
-        title: "Abnormal mortality signs in Snowy Egret colony",
-        description:
-            "Multiple SNEG individuals showing signs of lethargy and abnormal feather condition at Biloxi South 2. Chick survival rate dropped below 30%.",
-        category: "health",
-        severity: "high",
-        status: "active",
-        colony: "Biloxi South 2",
-        species: "SNEG",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 5400000),
-        action: "Collect samples for disease testing. Contact veterinary wildlife team immediately.",
-        details:
-            "SNEG nest counts show only 2-7 nests remaining from a peak of 11. ChickNestwithoutAdult counts are elevated. Potential avian influenza or environmental toxin exposure.",
-    },
-    {
-        id: "ALT-005",
-        title: "Predator activity detected near nesting colony",
-        description:
-            "Aerial imagery analysis detected potential predator presence (large raptors) circling Biloxi South 2 colony during nesting season.",
-        category: "predator",
-        severity: "high",
-        status: "acknowledged",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 10800000),
-        action: "Deploy predator deterrent measures. Increase monitoring frequency in affected areas.",
-        details:
-            "Image analysis from Camera 2 shows multiple frames with raptor silhouettes near nesting areas 1-3. Coincides with increased nest abandonment in these zones.",
-    },
-    {
-        id: "ALT-006",
-        title: "Coastal erosion threatening nesting habitat",
-        description:
-            "Satellite and survey data indicate significant shoreline erosion at Biloxi South colony group. Estimated 15% habitat loss since last assessment.",
-        category: "habitat",
-        severity: "high",
-        status: "active",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 14400000),
-        action: "Initiate habitat restoration assessment. Consider relocating vulnerable nests to higher ground.",
-        details:
-            "Deltaic Coastal Marshes region showing accelerated erosion. GeoRegion data for Biloxi South indicates the ExtrapArea is shrinking. Primary habitat classification may need updating.",
-    },
-    {
-        id: "ALT-007",
-        title: "Unusual submission pattern from citizen scientist",
-        description:
-            "Citizen scientist (ID: KMR) submitted 47 records in 30 minutes with inconsistent species labeling between LAGU and FOTE across identical photo frames.",
-        category: "citizen",
-        severity: "medium",
-        status: "active",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 18000000),
-        action: "Review submitted records for accuracy. Contact contributor for clarification on labeling methodology.",
-        details:
-            "Dotter KMR's recent submissions show LAGU and FOTE labels applied to the same DottingAreaNumber across consecutive PhotoNumbers. This may indicate confusion between species or systematic labeling error.",
-    },
-    {
-        id: "ALT-008",
-        title: "Missing survey data for June 2013 period",
-        description:
-            "No survey data available for Biloxi South 2 colony between June 18-30, 2013. A 12-day monitoring gap detected during peak nesting season.",
-        category: "data-gap",
-        severity: "medium",
-        status: "resolved",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 86400000),
-        action: "Schedule supplemental survey to fill gap. Cross-reference with adjacent colony data.",
-        details:
-            "Last recorded survey was 06/18/13 with entries across multiple dotting areas. Next recorded data jumps ahead. Peak nesting activity requires continuous monitoring coverage.",
-    },
-    {
-        id: "ALT-009",
-        title: "Roseate Spoonbill detected — Endangered species alert",
-        description:
-            "ROSP (Roseate Spoonbill) confirmed nesting at monitoring site. Species classified as threatened in Louisiana region. Requires immediate protection measures.",
-        category: "endangered",
-        severity: "critical",
-        status: "active",
-        colony: "Biloxi South 2",
-        species: "ROSP",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 900000),
-        action: "Activate enhanced protection protocol. Restrict access to nesting area. Notify state wildlife agency.",
-        details:
-            "Roseate Spoonbill is classified as a species of conservation concern. Detection during active nesting triggers mandatory reporting to Louisiana Department of Wildlife and Fisheries. Enhanced monitoring and buffer zone establishment required.",
-    },
-    {
-        id: "ALT-010",
-        title: "Brown Pelican population surge at Biloxi South",
-        description:
-            "BRPE population increased by 78% across the Biloxi South colony group. Potential overcrowding concern with existing LAGU and FOTE colonies.",
-        category: "population",
-        severity: "medium",
-        status: "acknowledged",
-        colony: "Biloxi South 2",
-        species: "BRPE",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 21600000),
-        action: "Assess carrying capacity and inter-species competition. Monitor nest density metrics.",
-        details:
-            "Brown Pelican recovery has been notable post-restoration. However, rapid increase may stress shared habitat resources. Total bird counts significantly elevated in latest survey.",
-    },
-    {
-        id: "ALT-011",
-        title: "Storm surge warning — Coastal Marshes region",
-        description:
-            "Weather service reports Category 2 storm approaching Deltaic Coastal Marshes. Biloxi South colonies at direct risk within 48-hour window.",
-        category: "predator",
-        severity: "critical",
-        status: "active",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 600000),
-        action: "Activate emergency response protocol. Assess feasibility of nest relocation for critical species.",
-        details:
-            "Mississippi Estuarine Area marine ecoregion under storm warning. Historical data shows colony population crashes following major storm events. FOTE and LAGU nests are particularly vulnerable.",
-    },
-    {
-        id: "ALT-012",
-        title: "Water quality degradation near colony",
-        description:
-            "Environmental sensors indicate elevated turbidity and potential contaminant levels in waters adjacent to Biloxi South nesting areas.",
-        category: "habitat",
-        severity: "medium",
-        status: "active",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 43200000),
-        action: "Collect water samples for laboratory analysis. Monitor bird feeding behavior for changes.",
-        details:
-            "Coastal Marshes primary habitat relies on clean water for fish populations that support nesting bird colonies. Degraded water quality can cascade into reduced food availability and chick mortality.",
-    },
-    {
-        id: "ALT-013",
-        title: "Great Blue Heron — rare species detection",
-        description:
-            "GBHE detected for the first time at Biloxi South 2 monitoring site. Single breeding pair observed establishing territory.",
-        category: "endangered",
-        severity: "low",
-        status: "acknowledged",
-        colony: "Biloxi South 2",
-        species: "GBHE",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 36000000),
-        action: "Document nesting activity. Add species to regular monitoring protocol for this colony.",
-        details:
-            "While not endangered, GBHE is uncommon at this specific colony location. Presence may indicate improving habitat conditions or displacement from other areas.",
-    },
-    {
-        id: "ALT-014",
-        title: "Incomplete camera coverage — Area 8 data missing",
-        description:
-            "Camera 2, Card 2 shows no photos from DottingArea 8+ for the May 2013 survey. Equipment malfunction suspected.",
-        category: "data-gap",
-        severity: "low",
-        status: "resolved",
-        colony: "Biloxi South 2",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 172800000),
-        action: "Inspect camera equipment. Schedule supplementary aerial survey if needed.",
-        details:
-            "Camera 2, Card 2 photo sequence ends at image 0746. Expected coverage through image 0760+ based on colony extent. May result in undercount for eastern colony areas.",
-    },
-    {
-        id: "ALT-015",
-        title: "Excessive abandoned nests in Area 4",
-        description:
-            "DottingArea 4 at Biloxi South 2 showing 35% nest abandonment rate — well above the 10% baseline for this colony.",
-        category: "nest",
-        severity: "high",
-        status: "active",
-        colony: "Biloxi South 2",
-        species: "FOTE",
-        region: "Biloxi South",
-        timestamp: new Date(Date.now() - 9000000),
-        action: "Investigate localized disturbance. Check for human interference or environmental contamination.",
-        details:
-            "AbandNest counts elevated in dotting area 4. EmptyNest values also increasing. Adjacent areas (3 and 5) showing early signs of similar trend. Urgent field assessment recommended.",
-    },
-];
 
 function formatTimeAgo(date: Date): string {
     const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -446,19 +200,133 @@ function formatTimeAgo(date: Date): string {
     return `${days}d ago`;
 }
 
+function getQuickActions(alert: Alert): { label: string; icon: typeof Bell; variant: "default" | "outline" | "ghost"; className?: string; toastTitle: string; toastDesc: string }[] {
+    const actions: { label: string; icon: typeof Bell; variant: "default" | "outline" | "ghost"; className?: string; toastTitle: string; toastDesc: string }[] = [];
+    const isCriticalOrHigh = alert.severity === "critical" || alert.severity === "high";
+
+    if (alert.category === "weather") {
+        actions.push(
+            { label: "Emergency Protocol", icon: Siren, variant: "default", className: "bg-red-600 hover:bg-red-700 text-white", toastTitle: "Emergency Protocol Activated", toastDesc: `Storm response protocol initiated for ${alert.colony}. All field teams notified.` },
+            { label: "Notify All Teams", icon: Megaphone, variant: "outline", toastTitle: "Broadcast Sent", toastDesc: `Weather alert broadcast to all field teams monitoring ${alert.colony} region.` },
+        );
+    } else if (alert.category === "endangered") {
+        actions.push(
+            { label: "Notify LDWF", icon: Megaphone, variant: "default", className: "bg-pink-600 hover:bg-pink-700 text-white", toastTitle: "Agency Notified", toastDesc: `Louisiana Dept. of Wildlife & Fisheries notified about ${alert.species} at ${alert.colony}.` },
+            { label: "Call Field Team", icon: Phone, variant: "outline", toastTitle: "Calling Field Team", toastDesc: `Initiating call to field team lead for ${alert.colony} sector...` },
+            { label: "Create Response Plan", icon: ClipboardList, variant: "outline", toastTitle: "Response Plan Created", toastDesc: `Protection plan generated for ${alert.species} at ${alert.colony}. Assigned to Dr. Sarah Mitchell.` },
+        );
+    } else if (alert.category === "population" && isCriticalOrHigh) {
+        actions.push(
+            { label: "Call Field Team", icon: Phone, variant: "outline", toastTitle: "Calling Field Team", toastDesc: `Initiating call to field team lead for ${alert.colony} sector...` },
+            { label: "Create Response Plan", icon: ClipboardList, variant: "outline", toastTitle: "Response Plan Created", toastDesc: `Population decline investigation plan created for ${alert.species} at ${alert.colony}.` },
+            { label: "Schedule Survey", icon: CalendarPlus, variant: "outline", toastTitle: "Survey Scheduled", toastDesc: `Emergency survey scheduled for ${alert.colony} — next available window: tomorrow 6:00 AM.` },
+        );
+    } else if (alert.category === "nest") {
+        actions.push(
+            { label: "Schedule Survey", icon: CalendarPlus, variant: "outline", toastTitle: "Survey Scheduled", toastDesc: `Nest assessment survey scheduled for ${alert.colony} — team bravo assigned.` },
+            { label: "Call Field Team", icon: Phone, variant: "outline", toastTitle: "Calling Field Team", toastDesc: `Initiating call to nest monitoring team for ${alert.colony}...` },
+        );
+    } else if (alert.category === "data-gap") {
+        actions.push(
+            { label: "Schedule Survey", icon: CalendarPlus, variant: "outline", toastTitle: "Survey Scheduled", toastDesc: `Gap-fill survey scheduled for ${alert.colony} to restore data continuity.` },
+        );
+    } else if (alert.category === "habitat") {
+        actions.push(
+            { label: "Request Assessment", icon: ClipboardList, variant: "outline", toastTitle: "Assessment Requested", toastDesc: `Habitat assessment request filed for ${alert.colony}. Environmental team notified.` },
+        );
+    } else if (alert.category === "population") {
+        actions.push(
+            { label: "Schedule Survey", icon: CalendarPlus, variant: "outline", toastTitle: "Survey Scheduled", toastDesc: `Follow-up population survey scheduled for ${alert.colony}.` },
+        );
+    }
+
+    // All alerts can view on map and add to watchlist
+    actions.push(
+        { label: "View on Map", icon: Map, variant: "ghost", toastTitle: "", toastDesc: "" },
+    );
+
+    if (alert.category !== "weather") {
+        actions.push(
+            { label: "Add to Watchlist", icon: Bookmark, variant: "ghost", toastTitle: "Added to Watchlist", toastDesc: `${alert.colony}${alert.species ? ` (${alert.species})` : ""} added to your monitoring watchlist.` },
+        );
+    }
+
+    return actions;
+}
+
+function getResponsePlanSteps(alert: Alert): string[] {
+    if (alert.category === "endangered") {
+        return [
+            `Establish 200m buffer zone around ${alert.species} nesting area at ${alert.colony}`,
+            `File Form WL-9 with Louisiana Dept. of Wildlife & Fisheries within 24 hours`,
+            `Deploy camera traps to monitor nest activity (minimum 2 units)`,
+            `Restrict boat traffic and foot access to nesting quadrant`,
+            `Schedule bi-weekly monitoring visits through end of nesting season`,
+            `Coordinate with Dr. Sarah Mitchell (LDWF) for species recovery protocol`,
+        ];
+    }
+    if (alert.category === "weather") {
+        return [
+            `Evacuate all field personnel from ${alert.colony} area`,
+            `Secure monitoring equipment and camera stations`,
+            `Activate satellite tracking on GPS-tagged individuals`,
+            `Prepare post-storm assessment team (deploy within 48h of all-clear)`,
+            `Notify partner agencies: USFWS, LDWF, coastal parish emergency mgmt`,
+        ];
+    }
+    if (alert.category === "population" && (alert.severity === "critical" || alert.severity === "high")) {
+        return [
+            `Deploy field team to ${alert.colony} within 48 hours for ground assessment`,
+            `Collect water and soil samples from nesting area for toxicology screening`,
+            `Review aerial imagery from last 3 survey periods for habitat change`,
+            `Check adjacent colonies for similar ${alert.species} population trends`,
+            `File population decline report with state monitoring database`,
+            `Schedule follow-up aerial survey within 2 weeks`,
+        ];
+    }
+    if (alert.category === "nest") {
+        return [
+            `Conduct ground survey of abandoned nest sites at ${alert.colony}`,
+            `Document evidence of predation, disturbance, or contamination`,
+            `Install motion-activated cameras near affected nesting areas`,
+            `Compare abandonment patterns with adjacent colonies`,
+            `Report findings to regional coordinator within 7 days`,
+        ];
+    }
+    if (alert.category === "habitat") {
+        return [
+            `Request satellite imagery comparison (current vs. 1 year ago) for ${alert.colony}`,
+            `Measure vegetation cover, water levels, and substrate condition`,
+            `Assess erosion rate and shoreline change at colony perimeter`,
+            `Evaluate viability of habitat restoration or nest platform installation`,
+            `Coordinate with Army Corps of Engineers if coastal infrastructure involved`,
+        ];
+    }
+    return [
+        `Review latest survey data for ${alert.colony}`,
+        `Coordinate with field team lead for on-site assessment`,
+        `Document findings and update monitoring database`,
+        `Schedule follow-up survey within 30 days`,
+    ];
+}
+
 function AlertCard({
     alert,
     onStatusChange,
+    onNavigateToMap,
 }: {
     alert: Alert;
     onStatusChange: (id: string, status: AlertStatus) => void;
+    onNavigateToMap: (colony: string) => void;
 }) {
     const [expanded, setExpanded] = useState(false);
+    const [showPlan, setShowPlan] = useState(false);
     const catConfig = CATEGORY_CONFIG[alert.category];
     const sevConfig = SEVERITY_CONFIG[alert.severity];
     const statConfig = STATUS_CONFIG[alert.status];
     const CategoryIcon = catConfig.icon;
     const StatusIcon = statConfig.icon;
+    const quickActions = useMemo(() => getQuickActions(alert), [alert]);
 
     return (
         <Card
@@ -517,7 +385,7 @@ function AlertCard({
                                     className="text-[10px] px-2 py-0"
                                 >
                                     {alert.species} —{" "}
-                                    {SPECIES_MAP[alert.species] ||
+                                    {SPECIES_NAMES[alert.species] ||
                                         alert.species}
                                 </Badge>
                             )}
@@ -582,7 +450,79 @@ function AlertCard({
                             </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 pt-1">
+                        {/* Quick Actions */}
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-2">
+                                Quick Actions
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {quickActions.map((action) => {
+                                    const ActionIcon = action.icon;
+                                    return (
+                                        <Button
+                                            key={action.label}
+                                            size="sm"
+                                            variant={action.variant}
+                                            className={cn("h-7 text-xs", action.className)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (action.label === "View on Map") {
+                                                    onNavigateToMap(alert.colony);
+                                                    return;
+                                                }
+                                                if (action.label === "Create Response Plan") {
+                                                    setShowPlan(true);
+                                                    toast.success(action.toastTitle, { description: action.toastDesc });
+                                                    return;
+                                                }
+                                                toast.success(action.toastTitle, {
+                                                    description: action.toastDesc,
+                                                });
+                                            }}
+                                        >
+                                            <ActionIcon className="h-3 w-3 mr-1.5" />
+                                            {action.label}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Response Plan (shown when "Create Response Plan" is clicked) */}
+                        {showPlan && (
+                            <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 animate-in slide-in-from-top-1 duration-200">
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
+                                        <ClipboardList className="h-3.5 w-3.5" />
+                                        Response Plan — {alert.colony}
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                                        onClick={(e) => { e.stopPropagation(); setShowPlan(false); }}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                                <ol className="space-y-1.5">
+                                    {getResponsePlanSteps(alert).map((step, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                            <span className="shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
+                                                {i + 1}
+                                            </span>
+                                            <span className="leading-relaxed">{step}</span>
+                                        </li>
+                                    ))}
+                                </ol>
+                                <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t border-border/20">
+                                    Auto-generated plan · Assigned to current user · Created {new Date().toLocaleString()}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Status Actions */}
+                        <div className="flex flex-wrap gap-2 pt-1 border-t border-border/20">
                             {alert.status === "active" && (
                                 <>
                                     <Button
@@ -669,12 +609,57 @@ function AlertCard({
     );
 }
 
-export default function ManagerAlerts() {
-    const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
+function AlertsContent() {
+    const navigate = useNavigate();
+    const { records, colonyStats, loading: dataLoading } = useData();
+    const [alerts, setAlerts] = useState<Alert[]>([]);
+    const [weatherLoading, setWeatherLoading] = useState(false);
+    const [weatherLastChecked, setWeatherLastChecked] = useState<Date | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [severityFilter, setSeverityFilter] = useState<string>("all");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
     const [activeTab, setActiveTab] = useState("active");
+
+    // Generate conservation alerts from real CSV data
+    const conservationAlerts = useMemo(() => {
+        if (records.length === 0) return [];
+        return generateConservationAlerts(records);
+    }, [records]);
+
+    // Fetch weather alerts
+    useEffect(() => {
+        if (colonyStats.length === 0) return;
+        let cancelled = false;
+
+        async function loadWeather() {
+            setWeatherLoading(true);
+            try {
+                const result = await fetchWeatherAlerts(colonyStats);
+                if (!cancelled) {
+                    setWeatherLastChecked(result.lastChecked);
+                    // Merge conservation + weather alerts
+                    setAlerts([...conservationAlerts, ...result.alerts]);
+                }
+            } catch (err) {
+                console.error("Weather alerts failed:", err);
+                if (!cancelled) {
+                    setAlerts(conservationAlerts);
+                }
+            } finally {
+                if (!cancelled) setWeatherLoading(false);
+            }
+        }
+
+        loadWeather();
+        return () => { cancelled = true; };
+    }, [colonyStats, conservationAlerts]);
+
+    // Set conservation alerts immediately (weather will merge in later)
+    useEffect(() => {
+        if (conservationAlerts.length > 0 && alerts.length === 0) {
+            setAlerts(conservationAlerts);
+        }
+    }, [conservationAlerts]);
 
     const handleStatusChange = (id: string, newStatus: AlertStatus) => {
         setAlerts((prev) =>
@@ -775,10 +760,30 @@ export default function ManagerAlerts() {
                             <p className="text-muted-foreground text-sm">
                                 Monitor and respond to wildlife alerts across
                                 all colonies
+                                {weatherLoading && (
+                                    <span className="inline-flex items-center gap-1 ml-2 text-cyan-400">
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        Checking weather...
+                                    </span>
+                                )}
+                                {weatherLastChecked && !weatherLoading && (
+                                    <span className="ml-2 text-muted-foreground/60">
+                                        · Weather checked {formatTimeAgo(weatherLastChecked)}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     </div>
                 </div>
+
+                {dataLoading && (
+                    <Card className="glass-card mb-6">
+                        <CardContent className="flex items-center justify-center py-12">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary mr-3" />
+                            <p className="text-muted-foreground">Analyzing colony data for alerts...</p>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -863,7 +868,7 @@ export default function ManagerAlerts() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-2">
                             {Object.entries(CATEGORY_CONFIG).map(
                                 ([key, config]) => {
                                     const Icon = config.icon;
@@ -1038,6 +1043,9 @@ export default function ManagerAlerts() {
                                             onStatusChange={
                                                 handleStatusChange
                                             }
+                                            onNavigateToMap={(colony) => {
+                                                navigate(`/manager/map?colony=${encodeURIComponent(colony)}`);
+                                            }}
                                         />
                                     ))
                                 )}
@@ -1047,5 +1055,13 @@ export default function ManagerAlerts() {
                 </Tabs>
             </main>
         </div>
+    );
+}
+
+export default function ManagerAlerts() {
+    return (
+        <DataProvider>
+            <AlertsContent />
+        </DataProvider>
     );
 }
