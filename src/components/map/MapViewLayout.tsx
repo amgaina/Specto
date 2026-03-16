@@ -105,6 +105,141 @@ function getSpeciesTrends(data: Map<number, YearData>, colonyName: string, years
     }).sort((a, b) => b.total - a.total);
 }
 
+// --- Lightweight markdown renderer for chat ---
+function MiniMarkdown({ text, className }: { text: string; className?: string }) {
+    const lines = text.split('\n');
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+
+    const renderInline = (s: string): React.ReactNode[] => {
+        const parts: React.ReactNode[] = [];
+        // Process bold, italic, inline code
+        const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+        let lastIdx = 0;
+        let match: RegExpExecArray | null;
+        let key = 0;
+        while ((match = re.exec(s)) !== null) {
+            if (match.index > lastIdx) parts.push(s.slice(lastIdx, match.index));
+            if (match[2]) parts.push(<strong key={key++} className="text-white font-semibold">{match[2]}</strong>);
+            else if (match[3]) parts.push(<em key={key++} className="text-white/60 italic">{match[3]}</em>);
+            else if (match[4]) parts.push(<code key={key++} className="px-1 py-0.5 rounded bg-white/10 text-primary text-[0.85em]">{match[4]}</code>);
+            lastIdx = match.index + match[0].length;
+        }
+        if (lastIdx < s.length) parts.push(s.slice(lastIdx));
+        return parts;
+    };
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // Horizontal rule
+        if (line.match(/^-{3,}$/) || line.match(/^_{3,}$/)) {
+            elements.push(<hr key={i} className="border-white/10 my-2" />);
+            i++; continue;
+        }
+
+        // Headings
+        const hMatch = line.match(/^(#{1,4})\s+(.+)/);
+        if (hMatch) {
+            const level = hMatch[1].length;
+            const cls = level === 1 ? "text-base font-bold text-white mt-1 mb-1.5"
+                : level === 2 ? "text-sm font-bold text-primary mt-2 mb-1"
+                : level === 3 ? "text-xs font-semibold text-white/80 mt-2 mb-0.5 uppercase tracking-wider"
+                : "text-xs font-medium text-white/60 mt-1.5 mb-0.5";
+            elements.push(<div key={i} className={cls}>{renderInline(hMatch[2])}</div>);
+            i++; continue;
+        }
+
+        // Table (detect |---|)
+        if (i + 1 < lines.length && lines[i + 1]?.match(/^\|[-|: ]+\|$/)) {
+            const headers = line.split('|').filter(c => c.trim()).map(c => c.trim());
+            i += 2; // skip header + separator
+            const rows: string[][] = [];
+            while (i < lines.length && lines[i].startsWith('|')) {
+                rows.push(lines[i].split('|').filter(c => c.trim()).map(c => c.trim()));
+                i++;
+            }
+            elements.push(
+                <div key={`tbl-${i}`} className="my-1.5 overflow-x-auto rounded border border-white/10">
+                    <table className="w-full text-[0.85em]">
+                        <thead><tr className="border-b border-white/10 bg-white/[0.03]">
+                            {headers.map((h, hi) => <th key={hi} className="px-2 py-1 text-left font-semibold text-white/70">{renderInline(h)}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {rows.map((row, ri) => (
+                                <tr key={ri} className="border-b border-white/5 last:border-0">
+                                    {row.map((cell, ci) => {
+                                        const isNeg = cell.match(/-\d+%/);
+                                        const isPos = cell.match(/\+\d+%/);
+                                        return <td key={ci} className={`px-2 py-1 ${isNeg ? 'text-red-400' : isPos ? 'text-emerald-400' : 'text-muted-foreground'}`}>{renderInline(cell)}</td>;
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+            continue;
+        }
+
+        // Blockquote
+        if (line.startsWith('> ')) {
+            elements.push(
+                <div key={i} className="border-l-2 border-primary/50 pl-2.5 py-1 my-1 text-white/50 italic">
+                    {renderInline(line.slice(2))}
+                </div>
+            );
+            i++; continue;
+        }
+
+        // Unordered list
+        if (line.match(/^[-*]\s/)) {
+            elements.push(
+                <div key={i} className="flex gap-1.5 py-0.5">
+                    <span className="text-primary mt-0.5 shrink-0">•</span>
+                    <span className="text-muted-foreground">{renderInline(line.replace(/^[-*]\s/, ''))}</span>
+                </div>
+            );
+            i++; continue;
+        }
+
+        // Ordered list
+        const olMatch = line.match(/^(\d+)\.\s(.+)/);
+        if (olMatch) {
+            const emoji = olMatch[2].match(/^(🔴|🟠|🟡|🟢)/);
+            elements.push(
+                <div key={i} className="flex gap-1.5 py-0.5">
+                    <span className="text-white/40 shrink-0 w-4 text-right font-mono">{olMatch[1]}.</span>
+                    <span className="text-muted-foreground">{renderInline(olMatch[2])}</span>
+                </div>
+            );
+            i++; continue;
+        }
+
+        // Indented continuation (lines starting with spaces after a list item)
+        if (line.match(/^\s{2,}/) && line.trim()) {
+            elements.push(
+                <div key={i} className="pl-6 text-muted-foreground/70 -mt-0.5">
+                    {renderInline(line.trim())}
+                </div>
+            );
+            i++; continue;
+        }
+
+        // Empty line
+        if (!line.trim()) {
+            elements.push(<div key={i} className="h-1" />);
+            i++; continue;
+        }
+
+        // Default paragraph
+        elements.push(<div key={i} className="text-muted-foreground py-0.5">{renderInline(line)}</div>);
+        i++;
+    }
+
+    return <div className={className}>{elements}</div>;
+}
+
 // Mini sparkline SVG
 function Sparkline({ data, color = "hsl(var(--primary))", width = 60, height = 20 }: { data: number[]; color?: string; width?: number; height?: number }) {
     const max = Math.max(...data, 1);
@@ -190,56 +325,62 @@ function computeDWHResponse(data: Map<number, YearData>, years: number[]): strin
     });
     speciesImpact.sort((a, b) => a.change - b.change);
 
-    let r = `[ DEEPWATER HORIZON IMPACT ASSESSMENT ]\n`;
-    r += `BP oil spill: April 20, 2010 | $501M NRDA bird settlement\n`;
-    r += `Dataset: ${years[0]}–${latestYr} (${years.length} survey years)\n`;
-    r += `─────────────────────────────────\n\n`;
-
-    r += `POPULATION IMPACT\n`;
-    r += `  Pre-spill avg (${preSpillYears[0] || "?"}–2010): ${Math.round(preAvgBirds).toLocaleString()} birds/yr\n`;
-    r += `  Post-spill avg (2011–2014):  ${Math.round(postAvgBirds).toLocaleString()} birds/yr`;
+    let postPct = '';
     if (preAvgBirds > 0) {
         const drop = Math.round((1 - postAvgBirds / preAvgBirds) * 100);
-        r += ` (${drop > 0 ? '-' : '+'}${Math.abs(drop)}%)`;
+        postPct = ` **(${drop > 0 ? '-' : '+'}${Math.abs(drop)}%)**`;
     }
-    r += `\n  Latest (${latestYr}):            ${latestData ? Math.round(latestData.totalBirds).toLocaleString() : "N/A"} birds`;
+    let latestPct = '';
     if (preAvgBirds > 0 && latestData) {
         const pct = Math.round((latestData.totalBirds / preAvgBirds - 1) * 100);
-        r += ` (${pct >= 0 ? '+' : ''}${pct}% vs pre-spill)`;
+        latestPct = ` **(${pct >= 0 ? '+' : ''}${pct}% vs pre-spill)**`;
     }
-    r += `\n\n`;
 
-    r += `COLONY RECOVERY STATUS\n`;
-    r += `  Fully recovered: ${fullyRecovered.length} colonies\n`;
-    r += `  Still impacted:  ${neverRecovered.length} colonies\n`;
-    r += `  New since spill: ${newSinceSpill.length} colonies\n\n`;
+    let r = `## Deepwater Horizon Impact Assessment\n`;
+    r += `*BP oil spill: April 20, 2010* · **$501M** NRDA bird settlement · Dataset: ${years[0]}–${latestYr} (${years.length} survey years)\n\n`;
+    r += `---\n\n`;
+
+    r += `### Population Impact\n\n`;
+    r += `| Period | Birds/yr | Change |\n`;
+    r += `|---|---|---|\n`;
+    r += `| Pre-spill (${preSpillYears[0] || "?"}–2010) | **${Math.round(preAvgBirds).toLocaleString()}** | *baseline* |\n`;
+    r += `| Post-spill (2011–2014) | **${Math.round(postAvgBirds).toLocaleString()}** |${postPct} |\n`;
+    r += `| Latest (${latestYr}) | **${latestData ? Math.round(latestData.totalBirds).toLocaleString() : "N/A"}** |${latestPct} |\n\n`;
+
+    r += `### Colony Recovery Status\n\n`;
+    r += `- **${fullyRecovered.length}** fully recovered\n`;
+    r += `- **${neverRecovered.length}** still impacted\n`;
+    r += `- **${newSinceSpill.length}** new since spill\n\n`;
 
     if (neverRecovered.length > 0) {
-        r += `MOST IMPACTED (never recovered):\n`;
-        neverRecovered.slice(0, 5).forEach((c, i) => { r += `  ${i + 1}. ${c.name}: ${c.prePeak.toLocaleString()} → ${c.current.toLocaleString()} (-${c.dropPct}%)\n`; });
+        r += `### Most Impacted *(never recovered)*\n\n`;
+        neverRecovered.slice(0, 5).forEach((c, i) => {
+            r += `${i + 1}. **${c.name}** — ${c.prePeak.toLocaleString()} → ${c.current.toLocaleString()} (**-${c.dropPct}%**)\n`;
+        });
         r += `\n`;
     }
     if (fullyRecovered.length > 0) {
-        r += `TOP RECOVERY STORIES:\n`;
-        fullyRecovered.slice(0, 5).forEach((c, i) => { r += `  ${i + 1}. ${c.name}: ${c.preAvg.toLocaleString()} → ${c.current.toLocaleString()} (+${c.growthPct}%)\n`; });
+        r += `### Top Recovery Stories\n\n`;
+        fullyRecovered.slice(0, 5).forEach((c, i) => {
+            r += `${i + 1}. **${c.name}** — ${c.preAvg.toLocaleString()} → ${c.current.toLocaleString()} (**+${c.growthPct}%**)\n`;
+        });
         r += `\n`;
     }
     if (speciesImpact.length > 0) {
         const hardest = speciesImpact.filter(s => s.change < 0).slice(0, 3);
         const best = speciesImpact.filter(s => s.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
-        if (hardest.length > 0) {
-            r += `HARDEST HIT SPECIES:\n`;
-            hardest.forEach(s => { r += `  ${s.sp}: ${s.pre.toLocaleString()}/yr → ${s.post.toLocaleString()} (${s.change}%)\n`; });
-            r += `\n`;
-        }
-        if (best.length > 0) {
-            r += `BEST SPECIES RECOVERY:\n`;
-            best.forEach(s => { r += `  ${s.sp}: ${s.pre.toLocaleString()}/yr → ${s.post.toLocaleString()} (+${s.change}%)\n`; });
+        if (hardest.length > 0 || best.length > 0) {
+            r += `### Species Impact\n\n`;
+            r += `| Species | Pre-spill/yr | Latest | Change |\n`;
+            r += `|---|---|---|---|\n`;
+            hardest.forEach(s => { r += `| ${s.sp} | ${s.pre.toLocaleString()} | ${s.post.toLocaleString()} | **${s.change}%** |\n`; });
+            best.forEach(s => { r += `| ${s.sp} | ${s.pre.toLocaleString()} | ${s.post.toLocaleString()} | **+${s.change}%** |\n`; });
             r += `\n`;
         }
     }
-    r += `─────────────────────────────────\n`;
-    r += `This analysis powers the $501M NRDA restoration\nmonitoring funded by the BP settlement.`;
+
+    r += `---\n\n`;
+    r += `> This analysis powers the **$501M NRDA** restoration monitoring funded by the BP settlement.`;
     return r;
 }
 
@@ -325,37 +466,40 @@ function computePriorityResponse(data: Map<number, YearData>, years: number[]): 
     const criticalCount = scored.filter(s => s.score >= 40).length;
     const totalBirdsAtRisk = scored.filter(s => s.score >= 20).reduce((sum, s) => sum + s.birds, 0);
 
-    let r = `[ CONSERVATION PRIORITY ASSESSMENT ]\n`;
-    r += `Multi-factor risk scoring across ${allNames.size} colonies\n`;
-    r += `─────────────────────────────────\n\n`;
+    const highCount = scored.filter(s => s.score >= 20 && s.score < 40).length;
+    const moderateCount = scored.filter(s => s.score >= 10 && s.score < 20).length;
 
-    r += `RISK SUMMARY\n`;
-    r += `  Critical priority: ${criticalCount} colonies\n`;
-    r += `  High priority:     ${scored.filter(s => s.score >= 20 && s.score < 40).length} colonies\n`;
-    r += `  Moderate risk:     ${scored.filter(s => s.score >= 10 && s.score < 20).length} colonies\n`;
-    r += `  Birds at risk:     ${totalBirdsAtRisk.toLocaleString()} (in high+ priority colonies)\n\n`;
+    let r = `## Conservation Priority Assessment\n`;
+    r += `*Multi-factor risk scoring across ${allNames.size} colonies*\n\n`;
+    r += `---\n\n`;
 
-    r += `TOP 10 PRIORITY COLONIES\n`;
-    r += `(Score: decline + peak distance + recent drop + diversity loss)\n\n`;
+    r += `### Risk Summary\n\n`;
+    r += `| Priority | Colonies |\n`;
+    r += `|---|---|\n`;
+    r += `| Critical | **${criticalCount}** |\n`;
+    r += `| High | **${highCount}** |\n`;
+    r += `| Moderate | **${moderateCount}** |\n`;
+    r += `| **Birds at risk** | **${totalBirdsAtRisk.toLocaleString()}** |\n\n`;
+
+    r += `### Top 10 Priority Colonies\n`;
+    r += `*Scored by: decline trajectory + peak distance + recent drop + diversity loss*\n\n`;
 
     scored.slice(0, 10).forEach((c, i) => {
-        const icon = c.score >= 40 ? "!!" : c.score >= 20 ? " !" : "  ";
         const trendArrow = c.trend === "down" ? "↓" : c.trend === "up" ? "↑" : "→";
-        r += `${icon} ${i + 1}. ${c.name} [Score: ${c.score}]\n`;
-        r += `      ${c.birds.toLocaleString()} birds | ${c.speciesCount} spp | ${trendArrow} ${c.trendPct}% | ${c.region}\n`;
-        r += `      ${c.reasons.join(" · ")}\n`;
-        if (i < 9) r += `\n`;
+        const badge = c.score >= 40 ? "🔴" : c.score >= 20 ? "🟠" : "🟡";
+        r += `${i + 1}. ${badge} **${c.name}** — Score: **${c.score}**\n`;
+        r += `   ${c.birds.toLocaleString()} birds · ${c.speciesCount} spp · ${trendArrow} ${c.trendPct}% · *${c.region}*\n`;
+        r += `   ${c.reasons.map(s => `\`${s}\``).join(' · ')}\n\n`;
     });
 
-    // Funding recommendation
-    r += `\n─────────────────────────────────\n`;
-    r += `FUNDING RECOMMENDATION\n`;
+    r += `---\n\n`;
+    r += `### Funding Recommendation\n\n`;
     if (criticalCount > 0) {
         const topCritical = scored.slice(0, criticalCount).map(s => s.name);
-        r += `  Immediate action: ${topCritical.slice(0, 3).join(", ")}${criticalCount > 3 ? ` +${criticalCount - 3} more` : ""}\n`;
+        r += `- **Immediate action:** ${topCritical.slice(0, 3).map(n => `*${n}*`).join(", ")}${criticalCount > 3 ? ` +${criticalCount - 3} more` : ""}\n`;
     }
-    r += `  ${totalAtRisk} colonies qualify for NRDA restoration funding\n`;
-    r += `  Estimated monitoring coverage: ${Math.round(totalBirdsAtRisk / (latestData.totalBirds || 1) * 100)}% of current population`;
+    r += `- **${totalAtRisk}** colonies qualify for NRDA restoration funding\n`;
+    r += `- Monitoring coverage: **${Math.round(totalBirdsAtRisk / (latestData.totalBirds || 1) * 100)}%** of current population`;
 
     return r;
 }
@@ -372,10 +516,12 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
     const [trendModalOpen, setTrendModalOpen] = useState(false);
     const [trendSpecies, setTrendSpecies] = useState("TOTAL");
     const [chatOpen, setChatOpen] = useState(true);
-    const [chatExpanded, setChatExpanded] = useState(false);
+    const [chatWidth, setChatWidth] = useState(320);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
     const [chatInput, setChatInput] = useState("");
     const [messages, setMessages] = useState<ChatMsg[]>([
-        { id: "1", role: "bot", text: "I analyze your colony data in real-time. Try:\n- \"Deepwater Horizon impact\" — full spill assessment\n- \"conservation priority\" — funding recommendations\n- \"analyze 2018\" — year breakdown\n- \"compare 2015 vs 2020\"\n- \"declining\" — at-risk colonies\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n- Or click any colony for auto-analysis" }
+        { id: "1", role: "bot", text: "### Specto Data Analyst\n\nI analyze your colony data in real-time. Try:\n\n- **Deepwater Horizon impact** — full spill assessment\n- **conservation priority** — funding recommendations\n- **analyze 2018** — year breakdown\n- **compare 2015 vs 2020** — side by side\n- **declining** — at-risk colonies\n- **top species** — dominance analysis\n- **health report** — ecosystem overview\n\n*Or click any colony on the map for auto-analysis.*" }
     ]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -431,6 +577,28 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
+    // --- Drag-to-resize chat panel ---
+    useEffect(() => {
+        if (!isDragging) return;
+        const onMouseMove = (e: MouseEvent) => {
+            if (!dragRef.current) return;
+            const delta = dragRef.current.startX - e.clientX;
+            const newWidth = Math.min(700, Math.max(240, dragRef.current.startWidth + delta));
+            setChatWidth(newWidth);
+        };
+        const onMouseUp = () => {
+            setIsDragging(false);
+            dragRef.current = null;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+    }, [isDragging]);
+
     // Auto-analyze when colony is selected
     useEffect(() => {
         if (!activeColony || years.length === 0) return;
@@ -442,23 +610,40 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
         const topGrowing = speciesTrends.filter(s => s.trend.direction === "up").slice(0, 3);
         const topDeclining = speciesTrends.filter(s => s.trend.direction === "down").slice(0, 3);
 
-        let analysis = `[ AUTO-ANALYSIS: ${activeColony.name} ]\n\n`;
-        analysis += `Overall trend: ${birdTrend.direction === "up" ? "+" : birdTrend.direction === "down" ? "-" : ""}${birdTrend.pct}% (${birdTrend.direction})\n`;
-        analysis += `Species diversity: ${activeColony.species.size} taxa recorded\n`;
-        analysis += `Current population: ${Math.round(activeColony.birds).toLocaleString()} birds\n\n`;
+        const trendIcon = birdTrend.direction === "up" ? "↑" : birdTrend.direction === "down" ? "↓" : "→";
+        let analysis = `### ${activeColony.name}\n\n`;
+        analysis += `- **Trend:** ${trendIcon} **${birdTrend.direction === "up" ? "+" : birdTrend.direction === "down" ? "-" : ""}${birdTrend.pct}%** (${birdTrend.direction})\n`;
+        analysis += `- **Species:** ${activeColony.species.size} taxa\n`;
+        analysis += `- **Population:** **${Math.round(activeColony.birds).toLocaleString()}** birds\n\n`;
 
         if (topGrowing.length > 0) {
-            analysis += `Growing species:\n${topGrowing.map(s => `  + ${s.species} (+${s.trend.pct}%)`).join('\n')}\n\n`;
+            analysis += `**Growing species:**\n${topGrowing.map(s => `- ${s.species} **+${s.trend.pct}%**`).join('\n')}\n\n`;
         }
         if (topDeclining.length > 0) {
-            analysis += `Declining species:\n${topDeclining.map(s => `  - ${s.species} (-${s.trend.pct}%)`).join('\n')}\n\n`;
+            analysis += `**Declining species:**\n${topDeclining.map(s => `- ${s.species} **-${s.trend.pct}%**`).join('\n')}\n\n`;
         }
         if (anomalies.length > 0) {
-            analysis += `Alerts:\n${anomalies.map(a => `  ! ${a}`).join('\n')}`;
+            analysis += `**Alerts:**\n${anomalies.map(a => `- ${a}`).join('\n')}`;
         }
 
         setMessages(m => [...m, { id: Date.now().toString(), role: "bot", text: analysis }]);
     }, [activeColony?.name]);
+
+    // --- Streaming text reveal ---
+    const streamText = useCallback((fullText: string, msgId: string) => {
+        let charIdx = 0;
+        const chunkSize = 3; // characters per tick
+        const interval = 12; // ms between ticks
+
+        const tick = () => {
+            charIdx = Math.min(charIdx + chunkSize, fullText.length);
+            setMessages(m => m.map(msg => msg.id === msgId ? { ...msg, text: fullText.slice(0, charIdx) } : msg));
+            if (charIdx < fullText.length) {
+                setTimeout(tick, interval);
+            }
+        };
+        tick();
+    }, []);
 
     // --- Agentic step runner for complex queries ---
     const runAgenticSteps = useCallback((steps: { label: string; durationMs: number }[], computeResult: () => string) => {
@@ -467,16 +652,20 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
 
         const runNext = () => {
             if (i >= steps.length) {
-                // All steps done — compute and show result
+                // All steps done — clear steps, compute result, stream it in
                 const result = computeResult();
-                setMessages(m => m.filter(msg => msg.role !== "step-active").concat({ id: Date.now().toString(), role: "bot", text: result }));
+                const botId = `bot-${Date.now()}`;
+                setMessages(m => {
+                    const cleaned = m.filter(msg => msg.role !== "step-active" && msg.role !== "step-done");
+                    return [...cleaned, { id: botId, role: "bot" as const, text: "" }];
+                });
+                setTimeout(() => streamText(result, botId), 100);
                 return;
             }
 
             const step = steps[i];
             const currentId = stepId();
 
-            // Mark previous step-active as step-done, add new step-active
             setMessages(m => {
                 const updated = m.map(msg => msg.role === "step-active" ? { ...msg, role: "step-done" as const } : msg);
                 return [...updated, { id: currentId, role: "step-active" as const, text: step.label }];
@@ -486,12 +675,11 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
             setTimeout(runNext, step.durationMs);
         };
 
-        // Remove the generic "thinking" message and start steps
         setTimeout(() => {
             setMessages(m => m.filter(msg => msg.role !== "thinking"));
             runNext();
         }, 400);
-    }, []);
+    }, [streamText]);
 
     // --- AI Analysis Engine ---
     const handleCommand = useCallback((input: string) => {
@@ -558,30 +746,30 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     const prevYr = data.get(yr - 1);
                     const yoyChange = prevYr ? ((yrData.totalBirds - prevYr.totalBirds) / prevYr.totalBirds * 100).toFixed(1) : null;
 
-                    response = `[ YEAR ANALYSIS: ${yr} ]\n\n`;
-                    response += `Population: ${Math.round(yrData.totalBirds).toLocaleString()} birds`;
+                    response = `## Year Analysis: ${yr}\n\n`;
+                    response += `- **Population:** **${Math.round(yrData.totalBirds).toLocaleString()}** birds`;
                     if (yoyChange) response += ` (${parseFloat(yoyChange) > 0 ? '+' : ''}${yoyChange}% YoY)`;
-                    response += `\nNesting: ${Math.round(yrData.totalNests).toLocaleString()} nests\n`;
-                    response += `Active colonies: ${yrData.colonies.size}\n`;
-                    response += `Species observed: ${Object.keys(speciesCounts).length}\n\n`;
+                    response += `\n- **Nesting:** **${Math.round(yrData.totalNests).toLocaleString()}** nests\n`;
+                    response += `- **Active colonies:** ${yrData.colonies.size}\n`;
+                    response += `- **Species observed:** ${Object.keys(speciesCounts).length}\n\n`;
 
-                    response += `Top 5 colonies:\n`;
+                    response += `### Top 5 Colonies\n\n`;
                     colonies.slice(0, 5).forEach((c, i) => {
-                        response += `  ${i + 1}. ${c.name} — ${Math.round(c.birds).toLocaleString()} birds (${c.species.size} spp)\n`;
+                        response += `${i + 1}. **${c.name}** — ${Math.round(c.birds).toLocaleString()} birds (${c.species.size} spp)\n`;
                     });
 
-                    response += `\nDominant species:\n`;
+                    response += `\n### Dominant Species\n\n`;
+                    response += `| Species | Count | Share |\n|---|---|---|\n`;
                     sortedSpecies.slice(0, 5).forEach(([sp, count]) => {
                         const pct = ((count / yrData.totalBirds) * 100).toFixed(1);
-                        response += `  ${sp}: ${Math.round(count).toLocaleString()} (${pct}%)\n`;
+                        response += `| ${sp} | **${Math.round(count).toLocaleString()}** | ${pct}% |\n`;
                     });
 
-                    // Check for anomalies in this year
                     const avgBirdsPerYear = Array.from(data.values()).reduce((a, b) => a + b.totalBirds, 0) / data.size;
                     if (yrData.totalBirds < avgBirdsPerYear * 0.7) {
-                        response += `\n⚠ Below-average year (${Math.round((1 - yrData.totalBirds / avgBirdsPerYear) * 100)}% below mean)`;
+                        response += `\n> ⚠ Below-average year — **${Math.round((1 - yrData.totalBirds / avgBirdsPerYear) * 100)}%** below mean`;
                     } else if (yrData.totalBirds > avgBirdsPerYear * 1.3) {
-                        response += `\n✓ Above-average year (+${Math.round((yrData.totalBirds / avgBirdsPerYear - 1) * 100)}% above mean)`;
+                        response += `\n> ✓ Above-average year — **+${Math.round((yrData.totalBirds / avgBirdsPerYear - 1) * 100)}%** above mean`;
                     }
                 } else {
                     response = `Year ${yr} not in dataset. Range: ${years[0]}-${years[years.length - 1]}`;
@@ -595,12 +783,13 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                         const birdDelta = d2.totalBirds - d1.totalBirds;
                         const pct = ((birdDelta / d1.totalBirds) * 100).toFixed(1);
 
-                        response = `[ COMPARISON: ${y1} vs ${y2} ]\n\n`;
-                        response += `Birds: ${Math.round(d1.totalBirds).toLocaleString()} → ${Math.round(d2.totalBirds).toLocaleString()} (${parseFloat(pct) > 0 ? '+' : ''}${pct}%)\n`;
-                        response += `Nests: ${Math.round(d1.totalNests).toLocaleString()} → ${Math.round(d2.totalNests).toLocaleString()}\n`;
-                        response += `Colonies: ${d1.colonies.size} → ${d2.colonies.size}\n\n`;
+                        response = `## Comparison: ${y1} vs ${y2}\n\n`;
+                        response += `| Metric | ${y1} | ${y2} | Change |\n`;
+                        response += `|---|---|---|---|\n`;
+                        response += `| Birds | ${Math.round(d1.totalBirds).toLocaleString()} | ${Math.round(d2.totalBirds).toLocaleString()} | **${parseFloat(pct) > 0 ? '+' : ''}${pct}%** |\n`;
+                        response += `| Nests | ${Math.round(d1.totalNests).toLocaleString()} | ${Math.round(d2.totalNests).toLocaleString()} | |\n`;
+                        response += `| Colonies | ${d1.colonies.size} | ${d2.colonies.size} | |\n\n`;
 
-                        // Find biggest winners/losers
                         const allNames = new Set([...d1.colonies.keys(), ...d2.colonies.keys()]);
                         const changes: { name: string; delta: number; pct: number }[] = [];
                         allNames.forEach(name => {
@@ -614,12 +803,13 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                         const losers = changes.filter(c => c.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 3);
 
                         if (gainers.length) {
-                            response += `Biggest gains:\n`;
-                            gainers.forEach(g => { response += `  + ${g.name}: +${Math.round(g.delta).toLocaleString()} birds (+${g.pct}%)\n`; });
+                            response += `### Biggest Gains\n\n`;
+                            gainers.forEach(g => { response += `- **${g.name}** — +${Math.round(g.delta).toLocaleString()} birds (**+${g.pct}%**)\n`; });
+                            response += `\n`;
                         }
                         if (losers.length) {
-                            response += `\nBiggest losses:\n`;
-                            losers.forEach(l => { response += `  - ${l.name}: ${Math.round(l.delta).toLocaleString()} birds (${l.pct}%)\n`; });
+                            response += `### Biggest Losses\n\n`;
+                            losers.forEach(l => { response += `- **${l.name}** — ${Math.round(l.delta).toLocaleString()} birds (**${l.pct}%**)\n`; });
                         }
                     } else { response = "One or both years not found."; }
                 } else { response = 'Usage: "compare 2015 vs 2020"'; }
@@ -641,12 +831,14 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                 });
 
                 declining.sort((a, b) => b.drop - a.drop);
-                response = `[ COLONIES OF CONCERN ]\n\n${declining.length} colonies with >50% decline from peak:\n\n`;
-                declining.slice(0, 10).forEach((c, i) => {
-                    response += `${i + 1}. ${c.name}\n   Peak: ${c.peak.toLocaleString()} (${c.peakYear}) → Now: ${c.current.toLocaleString()} (-${c.drop}%)\n`;
-                });
-                if (declining.length > 10) response += `\n...and ${declining.length - 10} more`;
-                if (declining.length === 0) response = "No colonies showing >50% decline from peak.";
+                if (declining.length === 0) { response = "No colonies showing >50% decline from peak."; }
+                else {
+                    response = `## Colonies of Concern\n\n**${declining.length}** colonies with >50% decline from peak:\n\n`;
+                    declining.slice(0, 10).forEach((c, i) => {
+                        response += `${i + 1}. **${c.name}** — Peak: ${c.peak.toLocaleString()} (${c.peakYear}) → Now: ${c.current.toLocaleString()} (**-${c.drop}%**)\n`;
+                    });
+                    if (declining.length > 10) response += `\n*...and ${declining.length - 10} more*`;
+                }
             } else if (text.includes("recovery") || text.includes("success") || text.includes("growing")) {
                 const growing: { name: string; growth: number; low: number; current: number; lowYear: number }[] = [];
                 const allNames = new Set<string>();
@@ -664,11 +856,13 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                 });
 
                 growing.sort((a, b) => b.growth - a.growth);
-                response = `[ RECOVERY SUCCESS STORIES ]\n\n${growing.length} colonies with >100% growth from low:\n\n`;
-                growing.slice(0, 10).forEach((c, i) => {
-                    response += `${i + 1}. ${c.name}\n   Low: ${c.low.toLocaleString()} (${c.lowYear}) → Now: ${c.current.toLocaleString()} (+${c.growth}%)\n`;
-                });
-                if (growing.length === 0) response = "No major recovery stories found.";
+                if (growing.length === 0) { response = "No major recovery stories found."; }
+                else {
+                    response = `## Recovery Success Stories\n\n**${growing.length}** colonies with >100% growth from low:\n\n`;
+                    growing.slice(0, 10).forEach((c, i) => {
+                        response += `${i + 1}. **${c.name}** — Low: ${c.low.toLocaleString()} (${c.lowYear}) → Now: ${c.current.toLocaleString()} (**+${c.growth}%**)\n`;
+                    });
+                }
             } else if (text.includes("top species") || text.includes("dominant") || text.includes("species breakdown")) {
                 const speciesTotal = new Map<string, { total: number; colonies: Set<string>; yearCounts: number[] }>();
                 years.forEach((yr, yi) => {
@@ -683,14 +877,14 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                 const sorted = Array.from(speciesTotal.entries()).sort((a, b) => b[1].total - a[1].total);
                 const grandTotal = sorted.reduce((a, b) => a + b[1].total, 0);
 
-                response = `[ SPECIES DOMINANCE ANALYSIS ]\n\n`;
-                response += `${sorted.length} species across all years\n\n`;
+                response = `## Species Dominance Analysis\n\n*${sorted.length} species across all years*\n\n`;
+                response += `| # | Species | Total | Share | Colonies | Trend |\n`;
+                response += `|---|---|---|---|---|---|\n`;
                 sorted.slice(0, 10).forEach(([sp, info], i) => {
                     const trend = computeTrend(info.yearCounts);
                     const pct = ((info.total / grandTotal) * 100).toFixed(1);
                     const trendIcon = trend.direction === "up" ? "↑" : trend.direction === "down" ? "↓" : "→";
-                    response += `${i + 1}. ${sp} — ${Math.round(info.total).toLocaleString()} total (${pct}%)\n`;
-                    response += `   ${info.colonies.size} colonies | Trend: ${trendIcon} ${trend.pct}%\n`;
+                    response += `| ${i + 1} | **${sp}** | ${Math.round(info.total).toLocaleString()} | ${pct}% | ${info.colonies.size} | ${trendIcon} ${trend.pct}% |\n`;
                 });
             } else if (text.includes("health") || text.includes("report") || text.includes("overview") || text.includes("summary")) {
                 const currentYr = data.get(selectedYear);
@@ -711,22 +905,24 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     else stableCount++;
                 });
 
-                response = `[ ECOSYSTEM HEALTH REPORT ]\n\n`;
-                response += `Timeline: ${years[0]}–${years[years.length - 1]} (${years.length} years)\n`;
-                response += `Current view: ${selectedYear}\n\n`;
-                response += `Overall trend: ${overallTrend.direction === "up" ? "↑ Growing" : overallTrend.direction === "down" ? "↓ Declining" : "→ Stable"} (${overallTrend.pct}%)\n`;
-                response += `Peak: ${Math.round(peak.birds).toLocaleString()} birds (${peak.yr})\n`;
-                response += `Low: ${Math.round(low.birds).toLocaleString()} birds (${low.yr})\n\n`;
-                response += `Colony health:\n`;
-                response += `  Growing: ${growingCount} colonies\n`;
-                response += `  Stable: ${stableCount} colonies\n`;
-                response += `  Declining: ${decliningCount} colonies\n\n`;
+                const trendLabel = overallTrend.direction === "up" ? "↑ Growing" : overallTrend.direction === "down" ? "↓ Declining" : "→ Stable";
+                response = `## Ecosystem Health Report\n\n`;
+                response += `*${years[0]}–${years[years.length - 1]} (${years.length} years) · Viewing: ${selectedYear}*\n\n`;
+                response += `---\n\n`;
+                response += `- **Overall trend:** ${trendLabel} (**${overallTrend.pct}%**)\n`;
+                response += `- **Peak:** ${Math.round(peak.birds).toLocaleString()} birds (${peak.yr})\n`;
+                response += `- **Low:** ${Math.round(low.birds).toLocaleString()} birds (${low.yr})\n\n`;
+                response += `### Colony Health\n\n`;
+                response += `| Status | Colonies |\n|---|---|\n`;
+                response += `| Growing | **${growingCount}** |\n`;
+                response += `| Stable | **${stableCount}** |\n`;
+                response += `| Declining | **${decliningCount}** |\n\n`;
                 if (currentYr) {
-                    response += `${selectedYear} snapshot:\n`;
-                    response += `  ${Math.round(currentYr.totalBirds).toLocaleString()} birds | ${Math.round(currentYr.totalNests).toLocaleString()} nests | ${currentYr.colonies.size} active colonies`;
+                    response += `### ${selectedYear} Snapshot\n\n`;
+                    response += `**${Math.round(currentYr.totalBirds).toLocaleString()}** birds · **${Math.round(currentYr.totalNests).toLocaleString()}** nests · **${currentYr.colonies.size}** active colonies`;
                 }
             } else {
-                response = "I can analyze:\n- \"Deepwater Horizon impact\" — full BP spill assessment\n- \"conservation priority\" — funding recommendations\n- \"analyze [year]\" — year breakdown\n- \"compare [year] vs [year]\" — side by side\n- \"declining\" — at-risk colonies\n- \"recovery\" — success stories\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n\nOr click a colony on the map for auto-analysis.";
+                response = "### Available Commands\n\n- **Deepwater Horizon impact** — full BP spill assessment\n- **conservation priority** — funding recommendations\n- **analyze [year]** — year breakdown\n- **compare [year] vs [year]** — side by side\n- **declining** — at-risk colonies\n- **recovery** — success stories\n- **top species** — dominance analysis\n- **health report** — ecosystem overview\n\n*Or click a colony on the map for auto-analysis.*";
             }
 
             setMessages(m => m.filter(msg => msg.role !== "thinking").concat({ id: Date.now().toString(), role: "bot", text: response }));
@@ -963,7 +1159,22 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     </main>
 
                     {/* Right Panel: AI Chat */}
-                    <aside className={`${chatExpanded ? 'w-[480px]' : 'w-[280px]'} border-l border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all duration-500 z-30 ${chatOpen ? 'mr-0' : chatExpanded ? '-mr-[480px]' : '-mr-[280px]'}`}>
+                    {(() => { const chatExpanded = chatWidth >= 380; return (
+                    <aside
+                        className={`border-l border-white/10 bg-[#080808] flex flex-col shrink-0 z-30 relative ${isDragging ? '' : 'transition-all duration-300'}`}
+                        style={{ width: chatOpen ? chatWidth : 0, marginRight: chatOpen ? 0 : -chatWidth }}
+                    >
+                        {/* Drag handle */}
+                        <div
+                            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-40 group hover:bg-primary/30 active:bg-primary/50 transition-colors"
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                dragRef.current = { startX: e.clientX, startWidth: chatWidth };
+                                setIsDragging(true);
+                            }}
+                        >
+                            <div className="absolute left-0.5 top-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full bg-white/20 group-hover:bg-primary/60 transition-colors" />
+                        </div>
                         <div className="px-3 py-2 border-b border-white/10 bg-primary/5 flex items-center gap-2">
                             <div className="h-6 w-6 bg-primary rounded-md flex items-center justify-center">
                                 <Bot className="h-3 w-3 text-white" />
@@ -972,42 +1183,43 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                 <h3 className="text-[10px] font-bold uppercase tracking-wider leading-none">Data Analyst</h3>
                                 <p className="text-[8px] font-bold text-emerald-400 mt-0.5 uppercase tracking-wider">Live</p>
                             </div>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                                onClick={() => setChatExpanded(!chatExpanded)}
-                                title={chatExpanded ? "Collapse panel" : "Expand panel"}
-                            >
-                                {chatExpanded ? <ArrowRight className="h-3 w-3" /> : <ArrowRight className="h-3 w-3 rotate-180" />}
-                            </Button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-2 custom-scrollbar">
-                            {messages.map(m => (
-                                <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            {messages.map(m => {
+                                const sz = chatExpanded ? 'text-xs' : 'text-[10px]';
+                                const szLg = chatExpanded ? 'text-sm' : 'text-xs';
+                                return (
+                                <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-1 duration-300`}>
                                     {m.role === 'thinking' ? (
-                                        <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass text-primary thinking-pulse ${chatExpanded ? 'text-xs' : 'text-[10px]'}`}>
-                                            <Loader2 className={`${chatExpanded ? 'h-3.5 w-3.5' : 'h-3 w-3'} animate-spin`} />
-                                            <span>{m.text}</span>
+                                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary ${sz}`}>
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                                            <span className="font-medium">{m.text}</span>
                                         </div>
                                     ) : m.role === 'step-active' ? (
-                                        <div className={`flex items-center gap-1.5 px-2 py-1 ${chatExpanded ? 'text-xs' : 'text-[10px]'} text-primary/80 animate-in fade-in duration-300`}>
-                                            <Loader2 className={`${chatExpanded ? 'h-3 w-3' : 'h-2.5 w-2.5'} animate-spin shrink-0`} />
+                                        <div className={`flex items-center gap-2 px-2.5 py-1 ${sz} text-primary animate-in fade-in duration-300`}>
+                                            <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                                             <span>{m.text}</span>
                                         </div>
                                     ) : m.role === 'step-done' ? (
-                                        <div className={`flex items-center gap-1.5 px-2 py-0.5 ${chatExpanded ? 'text-xs' : 'text-[10px]'} text-emerald-400/70 animate-in fade-in duration-200`}>
-                                            <span className="shrink-0">✓</span>
-                                            <span>{m.text}</span>
+                                        <div className={`flex items-center gap-2 px-2.5 py-0.5 ${sz} text-emerald-400/60 animate-in fade-in duration-200`}>
+                                            <span className="shrink-0 text-emerald-400">✓</span>
+                                            <span className="line-through decoration-emerald-400/20">{m.text}</span>
+                                        </div>
+                                    ) : m.role === 'user' ? (
+                                        <div className={`max-w-[85%] px-3 py-2 rounded-2xl rounded-tr-sm ${sz} bg-primary text-white font-medium`}>
+                                            {m.text}
                                         </div>
                                     ) : (
-                                        <div className={`max-w-[95%] px-2.5 py-2 rounded-lg ${chatExpanded ? 'text-xs' : 'text-[10px]'} leading-relaxed whitespace-pre-line font-mono ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'glass border-white/10 rounded-tl-none text-muted-foreground'}`}>
-                                            {m.text}
+                                        <div className="max-w-[98%] w-full">
+                                            <div className={`px-3 py-2.5 rounded-2xl rounded-tl-sm ${sz} leading-relaxed bg-white/[0.03] border border-white/[0.06]`}>
+                                                <MiniMarkdown text={m.text} />
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                             <div ref={chatEndRef} />
                         </div>
 
@@ -1018,6 +1230,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                             </Button>
                         </div>
                     </aside>
+                    ); })()}
                 </div>
             )}
 
