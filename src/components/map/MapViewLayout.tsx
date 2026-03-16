@@ -372,6 +372,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
     const [trendModalOpen, setTrendModalOpen] = useState(false);
     const [trendSpecies, setTrendSpecies] = useState("TOTAL");
     const [chatOpen, setChatOpen] = useState(true);
+    const [chatExpanded, setChatExpanded] = useState(false);
     const [chatInput, setChatInput] = useState("");
     const [messages, setMessages] = useState<ChatMsg[]>([
         { id: "1", role: "bot", text: "I analyze your colony data in real-time. Try:\n- \"Deepwater Horizon impact\" — full spill assessment\n- \"conservation priority\" — funding recommendations\n- \"analyze 2018\" — year breakdown\n- \"compare 2015 vs 2020\"\n- \"declining\" — at-risk colonies\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n- Or click any colony for auto-analysis" }
@@ -962,37 +963,46 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     </main>
 
                     {/* Right Panel: AI Chat */}
-                    <aside className={`w-[280px] border-l border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all duration-500 z-30 ${chatOpen ? 'mr-0' : '-mr-[280px]'}`}>
+                    <aside className={`${chatExpanded ? 'w-[480px]' : 'w-[280px]'} border-l border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all duration-500 z-30 ${chatOpen ? 'mr-0' : chatExpanded ? '-mr-[480px]' : '-mr-[280px]'}`}>
                         <div className="px-3 py-2 border-b border-white/10 bg-primary/5 flex items-center gap-2">
                             <div className="h-6 w-6 bg-primary rounded-md flex items-center justify-center">
                                 <Bot className="h-3 w-3 text-white" />
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <h3 className="text-[10px] font-bold uppercase tracking-wider leading-none">Data Analyst</h3>
                                 <p className="text-[8px] font-bold text-emerald-400 mt-0.5 uppercase tracking-wider">Live</p>
                             </div>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => setChatExpanded(!chatExpanded)}
+                                title={chatExpanded ? "Collapse panel" : "Expand panel"}
+                            >
+                                {chatExpanded ? <ArrowRight className="h-3 w-3" /> : <ArrowRight className="h-3 w-3 rotate-180" />}
+                            </Button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto px-2.5 py-2 space-y-2 custom-scrollbar">
                             {messages.map(m => (
                                 <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     {m.role === 'thinking' ? (
-                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass text-primary thinking-pulse text-[10px]">
-                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                        <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass text-primary thinking-pulse ${chatExpanded ? 'text-xs' : 'text-[10px]'}`}>
+                                            <Loader2 className={`${chatExpanded ? 'h-3.5 w-3.5' : 'h-3 w-3'} animate-spin`} />
                                             <span>{m.text}</span>
                                         </div>
                                     ) : m.role === 'step-active' ? (
-                                        <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-primary/80 animate-in fade-in duration-300">
-                                            <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 ${chatExpanded ? 'text-xs' : 'text-[10px]'} text-primary/80 animate-in fade-in duration-300`}>
+                                            <Loader2 className={`${chatExpanded ? 'h-3 w-3' : 'h-2.5 w-2.5'} animate-spin shrink-0`} />
                                             <span>{m.text}</span>
                                         </div>
                                     ) : m.role === 'step-done' ? (
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-emerald-400/70 animate-in fade-in duration-200">
+                                        <div className={`flex items-center gap-1.5 px-2 py-0.5 ${chatExpanded ? 'text-xs' : 'text-[10px]'} text-emerald-400/70 animate-in fade-in duration-200`}>
                                             <span className="shrink-0">✓</span>
                                             <span>{m.text}</span>
                                         </div>
                                     ) : (
-                                        <div className={`max-w-[95%] px-2.5 py-2 rounded-lg text-[10px] leading-relaxed whitespace-pre-line font-mono ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'glass border-white/10 rounded-tl-none text-muted-foreground'}`}>
+                                        <div className={`max-w-[95%] px-2.5 py-2 rounded-lg ${chatExpanded ? 'text-xs' : 'text-[10px]'} leading-relaxed whitespace-pre-line font-mono ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'glass border-white/10 rounded-tl-none text-muted-foreground'}`}>
                                             {m.text}
                                         </div>
                                     )}
@@ -1002,9 +1012,9 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                         </div>
 
                         <div className="px-2 py-1.5 border-t border-white/10 bg-black/40 flex gap-1">
-                            <Input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && chatInput.trim() && handleCommand(chatInput)} placeholder="Analyze data..." className="h-7 rounded bg-transparent border-white/10 text-[10px] px-2.5" />
-                            <Button size="sm" className="h-7 w-7 rounded shrink-0 bg-primary p-0" onClick={() => chatInput.trim() && handleCommand(chatInput)}>
-                                <ArrowRight className="h-3 w-3 text-white" />
+                            <Input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && chatInput.trim() && handleCommand(chatInput)} placeholder="Ask about colony data..." className={`${chatExpanded ? 'h-9 text-sm' : 'h-7 text-[10px]'} rounded bg-transparent border-white/10 px-2.5`} />
+                            <Button size="sm" className={`${chatExpanded ? 'h-9 w-9' : 'h-7 w-7'} rounded shrink-0 bg-primary p-0`} onClick={() => chatInput.trim() && handleCommand(chatInput)}>
+                                <ArrowRight className={`${chatExpanded ? 'h-4 w-4' : 'h-3 w-3'} text-white`} />
                             </Button>
                         </div>
                     </aside>
