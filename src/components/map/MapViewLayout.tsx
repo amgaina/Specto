@@ -243,6 +243,123 @@ function computeDWHResponse(data: Map<number, YearData>, years: number[]): strin
     return r;
 }
 
+function computePriorityResponse(data: Map<number, YearData>, years: number[]): string {
+    const latestYr = years[years.length - 1];
+    const latestData = data.get(latestYr);
+    if (!latestData) return "No data available for priority analysis.";
+
+    const allNames = new Set<string>();
+    data.forEach(yd => yd.colonies.forEach((_, n) => allNames.add(n)));
+
+    // Score each colony: higher = more urgent
+    const scored: {
+        name: string; region: string; score: number; birds: number; trend: string; trendPct: number;
+        speciesCount: number; reasons: string[];
+    }[] = [];
+
+    allNames.forEach(name => {
+        const history = getColonyHistory(data, name, years).filter(h => h.birds > 0);
+        if (history.length < 2) return;
+
+        const current = history[history.length - 1];
+        const peak = Math.max(...history.map(h => h.birds));
+        const peakYear = history.find(h => h.birds === peak)?.year ?? 0;
+        const trend = computeTrend(history.map(h => h.birds));
+        const col = latestData.colonies.get(name);
+        const region = col?.region || "Unknown";
+        const speciesCount = col?.species.size ?? 0;
+
+        let score = 0;
+        const reasons: string[] = [];
+
+        // Declining trend (0-30 pts)
+        if (trend.direction === "down") {
+            score += Math.min(30, trend.pct * 0.5);
+            reasons.push(`Declining ${trend.pct}%`);
+        }
+
+        // Distance from peak (0-25 pts)
+        if (peak > 0 && current.birds < peak * 0.6) {
+            const dropFromPeak = Math.round((1 - current.birds / peak) * 100);
+            score += Math.min(25, dropFromPeak * 0.4);
+            reasons.push(`${dropFromPeak}% below peak (${peakYear})`);
+        }
+
+        // Recent sharp drop (0-20 pts)
+        if (history.length >= 2) {
+            const prev = history[history.length - 2].birds;
+            if (prev > 0 && current.birds < prev * 0.6) {
+                const recentDrop = Math.round((1 - current.birds / prev) * 100);
+                score += Math.min(20, recentDrop * 0.5);
+                reasons.push(`${recentDrop}% drop in latest survey`);
+            }
+        }
+
+        // Species diversity loss (0-15 pts)
+        const historicalSpecies = new Set<string>();
+        years.forEach(yr => {
+            data.get(yr)?.colonies.get(name)?.species.forEach(s => historicalSpecies.add(s));
+        });
+        if (historicalSpecies.size > speciesCount && speciesCount > 0) {
+            const lost = historicalSpecies.size - speciesCount;
+            score += Math.min(15, lost * 5);
+            reasons.push(`Lost ${lost} species (${historicalSpecies.size} → ${speciesCount})`);
+        }
+
+        // Large colony bonus (bigger colonies = higher priority for conservation $)
+        if (peak > 1000) { score += 10; reasons.push(`Major colony (peak: ${Math.round(peak).toLocaleString()})`); }
+        else if (peak > 500) { score += 5; }
+
+        if (score > 5 && current.birds > 0) {
+            scored.push({
+                name, region, score: Math.round(score), birds: Math.round(current.birds),
+                trend: trend.direction, trendPct: trend.pct, speciesCount, reasons,
+            });
+        }
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    // Summary stats
+    const totalAtRisk = scored.filter(s => s.score >= 20).length;
+    const criticalCount = scored.filter(s => s.score >= 40).length;
+    const totalBirdsAtRisk = scored.filter(s => s.score >= 20).reduce((sum, s) => sum + s.birds, 0);
+
+    let r = `[ CONSERVATION PRIORITY ASSESSMENT ]\n`;
+    r += `Multi-factor risk scoring across ${allNames.size} colonies\n`;
+    r += `─────────────────────────────────\n\n`;
+
+    r += `RISK SUMMARY\n`;
+    r += `  Critical priority: ${criticalCount} colonies\n`;
+    r += `  High priority:     ${scored.filter(s => s.score >= 20 && s.score < 40).length} colonies\n`;
+    r += `  Moderate risk:     ${scored.filter(s => s.score >= 10 && s.score < 20).length} colonies\n`;
+    r += `  Birds at risk:     ${totalBirdsAtRisk.toLocaleString()} (in high+ priority colonies)\n\n`;
+
+    r += `TOP 10 PRIORITY COLONIES\n`;
+    r += `(Score: decline + peak distance + recent drop + diversity loss)\n\n`;
+
+    scored.slice(0, 10).forEach((c, i) => {
+        const icon = c.score >= 40 ? "!!" : c.score >= 20 ? " !" : "  ";
+        const trendArrow = c.trend === "down" ? "↓" : c.trend === "up" ? "↑" : "→";
+        r += `${icon} ${i + 1}. ${c.name} [Score: ${c.score}]\n`;
+        r += `      ${c.birds.toLocaleString()} birds | ${c.speciesCount} spp | ${trendArrow} ${c.trendPct}% | ${c.region}\n`;
+        r += `      ${c.reasons.join(" · ")}\n`;
+        if (i < 9) r += `\n`;
+    });
+
+    // Funding recommendation
+    r += `\n─────────────────────────────────\n`;
+    r += `FUNDING RECOMMENDATION\n`;
+    if (criticalCount > 0) {
+        const topCritical = scored.slice(0, criticalCount).map(s => s.name);
+        r += `  Immediate action: ${topCritical.slice(0, 3).join(", ")}${criticalCount > 3 ? ` +${criticalCount - 3} more` : ""}\n`;
+    }
+    r += `  ${totalAtRisk} colonies qualify for NRDA restoration funding\n`;
+    r += `  Estimated monitoring coverage: ${Math.round(totalBirdsAtRisk / (latestData.totalBirds || 1) * 100)}% of current population`;
+
+    return r;
+}
+
 export default function MapViewLayout({ header }: MapViewLayoutProps) {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Map<number, YearData>>(new Map());
@@ -257,7 +374,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
     const [chatOpen, setChatOpen] = useState(true);
     const [chatInput, setChatInput] = useState("");
     const [messages, setMessages] = useState<ChatMsg[]>([
-        { id: "1", role: "bot", text: "I analyze your colony data in real-time. Try:\n- \"Deepwater Horizon impact\" — full spill assessment\n- \"analyze 2018\" — year breakdown\n- \"declining\" — colonies losing population\n- \"compare 2015 vs 2020\"\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n- Or click any colony for auto-analysis" }
+        { id: "1", role: "bot", text: "I analyze your colony data in real-time. Try:\n- \"Deepwater Horizon impact\" — full spill assessment\n- \"conservation priority\" — funding recommendations\n- \"analyze 2018\" — year breakdown\n- \"compare 2015 vs 2020\"\n- \"declining\" — at-risk colonies\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n- Or click any colony for auto-analysis" }
     ]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -381,13 +498,14 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
         setMessages(m => [...m, { id: Date.now().toString(), role: "user", text: input }]);
         setChatInput("");
 
-        // Check if this is a complex agentic query (DWH / spill)
+        // Check if this is a complex agentic query
         const isDWH = text.includes("deepwater") || text.includes("spill") || text.includes("oil") || text.includes("bp") || text.includes("dwh") || text.includes("horizon");
+        const isPriority = text.includes("priorit") || text.includes("funding") || text.includes("conservation") || text.includes("protect") || text.includes("invest") || text.includes("which colonies");
+        const isAgentic = isDWH || isPriority;
 
-        setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: "thinking", text: isDWH ? "Initializing impact assessment agent..." : "Analyzing datasets..." }]);
+        setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: "thinking", text: isDWH ? "Initializing impact assessment agent..." : isPriority ? "Initializing conservation priority agent..." : "Analyzing datasets..." }]);
 
         if (isDWH) {
-            // Run with agentic steps
             const totalRows = Array.from(data.values()).reduce((sum, yd) => sum + yd.rows.length, 0);
             runAgenticSteps(
                 [
@@ -400,6 +518,24 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     { label: "Generating Deepwater Horizon impact assessment...", durationMs: 400 },
                 ],
                 () => computeDWHResponse(data, years)
+            );
+            return;
+        }
+
+        if (isPriority) {
+            const totalColonies = new Set(Array.from(data.values()).flatMap(yd => Array.from(yd.colonies.keys()))).size;
+            runAgenticSteps(
+                [
+                    { label: `Loading population data for ${totalColonies} colonies...`, durationMs: 700 },
+                    { label: "Computing multi-year decline trajectories...", durationMs: 600 },
+                    { label: "Measuring distance from historical peak populations...", durationMs: 700 },
+                    { label: "Detecting recent sharp population drops...", durationMs: 500 },
+                    { label: "Analyzing species diversity loss per colony...", durationMs: 600 },
+                    { label: "Scoring colonies by composite risk factor...", durationMs: 500 },
+                    { label: "Ranking conservation priorities and funding eligibility...", durationMs: 400 },
+                    { label: "Generating priority assessment report...", durationMs: 300 },
+                ],
+                () => computePriorityResponse(data, years)
             );
             return;
         }
@@ -589,7 +725,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     response += `  ${Math.round(currentYr.totalBirds).toLocaleString()} birds | ${Math.round(currentYr.totalNests).toLocaleString()} nests | ${currentYr.colonies.size} active colonies`;
                 }
             } else {
-                response = "I can analyze:\n- \"Deepwater Horizon impact\" — full BP spill assessment\n- \"analyze [year]\" — year breakdown\n- \"compare [year] vs [year]\" — side by side\n- \"declining\" — at-risk colonies\n- \"recovery\" — success stories\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n\nOr click a colony on the map for auto-analysis.";
+                response = "I can analyze:\n- \"Deepwater Horizon impact\" — full BP spill assessment\n- \"conservation priority\" — funding recommendations\n- \"analyze [year]\" — year breakdown\n- \"compare [year] vs [year]\" — side by side\n- \"declining\" — at-risk colonies\n- \"recovery\" — success stories\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n\nOr click a colony on the map for auto-analysis.";
             }
 
             setMessages(m => m.filter(msg => msg.role !== "thinking").concat({ id: Date.now().toString(), role: "bot", text: response }));
