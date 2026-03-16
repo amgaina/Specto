@@ -20,7 +20,7 @@ type YearData = {
     totalBirds: number; totalNests: number;
     colonies: Map<string, ColonyData>; rows: RawRow[];
 };
-type ChatMsg = { id: string; role: "user" | "bot" | "thinking"; text: string };
+type ChatMsg = { id: string; role: "user" | "bot" | "thinking" | "step-done" | "step-active"; text: string };
 
 interface MapViewLayoutProps { header: React.ReactNode; }
 
@@ -122,6 +122,127 @@ function TrendBadge({ trend }: { trend: { direction: "up" | "down" | "stable"; p
     return <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-white/40"><Minus className="h-3 w-3" />Stable</span>;
 }
 
+function computeDWHResponse(data: Map<number, YearData>, years: number[]): string {
+    const preSpillYears = years.filter(y => y <= 2010);
+    const postSpillYears = years.filter(y => y > 2010);
+
+    let preAvgBirds = 0, preAvgNests = 0;
+    preSpillYears.forEach(yr => {
+        const d = data.get(yr);
+        if (d) { preAvgBirds += d.totalBirds; preAvgNests += d.totalNests; }
+    });
+    if (preSpillYears.length > 0) { preAvgBirds /= preSpillYears.length; preAvgNests /= preSpillYears.length; }
+
+    const immediateYears = years.filter(y => y >= 2011 && y <= 2014);
+    let postAvgBirds = 0;
+    immediateYears.forEach(yr => {
+        const d = data.get(yr);
+        if (d) { postAvgBirds += d.totalBirds; }
+    });
+    if (immediateYears.length > 0) { postAvgBirds /= immediateYears.length; }
+
+    const latestYr = years[years.length - 1];
+    const latestData = data.get(latestYr);
+
+    const allNames = new Set<string>();
+    data.forEach(yd => yd.colonies.forEach((_, n) => allNames.add(n)));
+
+    const neverRecovered: { name: string; prePeak: number; current: number; dropPct: number }[] = [];
+    const fullyRecovered: { name: string; preAvg: number; current: number; growthPct: number }[] = [];
+    const newSinceSpill: string[] = [];
+
+    allNames.forEach(name => {
+        const preHist = preSpillYears.map(yr => data.get(yr)?.colonies.get(name)?.birds ?? 0).filter(b => b > 0);
+        const currentBirds = latestData?.colonies.get(name)?.birds ?? 0;
+
+        if (preHist.length === 0 && currentBirds > 50) { newSinceSpill.push(name); return; }
+        if (preHist.length === 0) return;
+
+        const prePeak = Math.max(...preHist);
+        const preAvg = preHist.reduce((a, b) => a + b, 0) / preHist.length;
+
+        if (prePeak > 100 && currentBirds < prePeak * 0.4) {
+            neverRecovered.push({ name, prePeak: Math.round(prePeak), current: Math.round(currentBirds), dropPct: Math.round((1 - currentBirds / prePeak) * 100) });
+        } else if (preAvg > 50 && currentBirds >= preAvg * 0.9) {
+            fullyRecovered.push({ name, preAvg: Math.round(preAvg), current: Math.round(currentBirds), growthPct: Math.round((currentBirds / preAvg - 1) * 100) });
+        }
+    });
+
+    neverRecovered.sort((a, b) => b.dropPct - a.dropPct);
+    fullyRecovered.sort((a, b) => b.growthPct - a.growthPct);
+
+    const speciesPre = new Map<string, number>();
+    const speciesPost = new Map<string, number>();
+    preSpillYears.forEach(yr => {
+        data.get(yr)?.rows.forEach(r => { speciesPre.set(r.species, (speciesPre.get(r.species) || 0) + r.birds); });
+    });
+    if (latestData) {
+        latestData.rows.forEach(r => { speciesPost.set(r.species, (speciesPost.get(r.species) || 0) + r.birds); });
+    }
+
+    const speciesImpact: { sp: string; pre: number; post: number; change: number }[] = [];
+    new Set([...speciesPre.keys(), ...speciesPost.keys()]).forEach(sp => {
+        const pre = (speciesPre.get(sp) || 0) / Math.max(preSpillYears.length, 1);
+        const post = speciesPost.get(sp) || 0;
+        if (pre > 50 || post > 50) {
+            speciesImpact.push({ sp, pre: Math.round(pre), post: Math.round(post), change: pre > 0 ? Math.round((post / pre - 1) * 100) : 100 });
+        }
+    });
+    speciesImpact.sort((a, b) => a.change - b.change);
+
+    let r = `[ DEEPWATER HORIZON IMPACT ASSESSMENT ]\n`;
+    r += `BP oil spill: April 20, 2010 | $501M NRDA bird settlement\n`;
+    r += `Dataset: ${years[0]}–${latestYr} (${years.length} survey years)\n`;
+    r += `─────────────────────────────────\n\n`;
+
+    r += `POPULATION IMPACT\n`;
+    r += `  Pre-spill avg (${preSpillYears[0] || "?"}–2010): ${Math.round(preAvgBirds).toLocaleString()} birds/yr\n`;
+    r += `  Post-spill avg (2011–2014):  ${Math.round(postAvgBirds).toLocaleString()} birds/yr`;
+    if (preAvgBirds > 0) {
+        const drop = Math.round((1 - postAvgBirds / preAvgBirds) * 100);
+        r += ` (${drop > 0 ? '-' : '+'}${Math.abs(drop)}%)`;
+    }
+    r += `\n  Latest (${latestYr}):            ${latestData ? Math.round(latestData.totalBirds).toLocaleString() : "N/A"} birds`;
+    if (preAvgBirds > 0 && latestData) {
+        const pct = Math.round((latestData.totalBirds / preAvgBirds - 1) * 100);
+        r += ` (${pct >= 0 ? '+' : ''}${pct}% vs pre-spill)`;
+    }
+    r += `\n\n`;
+
+    r += `COLONY RECOVERY STATUS\n`;
+    r += `  Fully recovered: ${fullyRecovered.length} colonies\n`;
+    r += `  Still impacted:  ${neverRecovered.length} colonies\n`;
+    r += `  New since spill: ${newSinceSpill.length} colonies\n\n`;
+
+    if (neverRecovered.length > 0) {
+        r += `MOST IMPACTED (never recovered):\n`;
+        neverRecovered.slice(0, 5).forEach((c, i) => { r += `  ${i + 1}. ${c.name}: ${c.prePeak.toLocaleString()} → ${c.current.toLocaleString()} (-${c.dropPct}%)\n`; });
+        r += `\n`;
+    }
+    if (fullyRecovered.length > 0) {
+        r += `TOP RECOVERY STORIES:\n`;
+        fullyRecovered.slice(0, 5).forEach((c, i) => { r += `  ${i + 1}. ${c.name}: ${c.preAvg.toLocaleString()} → ${c.current.toLocaleString()} (+${c.growthPct}%)\n`; });
+        r += `\n`;
+    }
+    if (speciesImpact.length > 0) {
+        const hardest = speciesImpact.filter(s => s.change < 0).slice(0, 3);
+        const best = speciesImpact.filter(s => s.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
+        if (hardest.length > 0) {
+            r += `HARDEST HIT SPECIES:\n`;
+            hardest.forEach(s => { r += `  ${s.sp}: ${s.pre.toLocaleString()}/yr → ${s.post.toLocaleString()} (${s.change}%)\n`; });
+            r += `\n`;
+        }
+        if (best.length > 0) {
+            r += `BEST SPECIES RECOVERY:\n`;
+            best.forEach(s => { r += `  ${s.sp}: ${s.pre.toLocaleString()}/yr → ${s.post.toLocaleString()} (+${s.change}%)\n`; });
+            r += `\n`;
+        }
+    }
+    r += `─────────────────────────────────\n`;
+    r += `This analysis powers the $501M NRDA restoration\nmonitoring funded by the BP settlement.`;
+    return r;
+}
+
 export default function MapViewLayout({ header }: MapViewLayoutProps) {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<Map<number, YearData>>(new Map());
@@ -136,7 +257,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
     const [chatOpen, setChatOpen] = useState(true);
     const [chatInput, setChatInput] = useState("");
     const [messages, setMessages] = useState<ChatMsg[]>([
-        { id: "1", role: "bot", text: "I analyze your colony data in real-time. Try:\n- \"analyze 2018\" — full year breakdown\n- \"declining\" — colonies losing population\n- \"compare 2015 vs 2020\"\n- \"top species\" — dominant species analysis\n- \"health report\" — ecosystem overview\n- Or click any colony for auto-analysis" }
+        { id: "1", role: "bot", text: "I analyze your colony data in real-time. Try:\n- \"Deepwater Horizon impact\" — full spill assessment\n- \"analyze 2018\" — year breakdown\n- \"declining\" — colonies losing population\n- \"compare 2015 vs 2020\"\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n- Or click any colony for auto-analysis" }
     ]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -221,12 +342,67 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
         setMessages(m => [...m, { id: Date.now().toString(), role: "bot", text: analysis }]);
     }, [activeColony?.name]);
 
+    // --- Agentic step runner for complex queries ---
+    const runAgenticSteps = useCallback((steps: { label: string; durationMs: number }[], computeResult: () => string) => {
+        let i = 0;
+        const stepId = () => `step-${Date.now()}-${i}`;
+
+        const runNext = () => {
+            if (i >= steps.length) {
+                // All steps done — compute and show result
+                const result = computeResult();
+                setMessages(m => m.filter(msg => msg.role !== "step-active").concat({ id: Date.now().toString(), role: "bot", text: result }));
+                return;
+            }
+
+            const step = steps[i];
+            const currentId = stepId();
+
+            // Mark previous step-active as step-done, add new step-active
+            setMessages(m => {
+                const updated = m.map(msg => msg.role === "step-active" ? { ...msg, role: "step-done" as const } : msg);
+                return [...updated, { id: currentId, role: "step-active" as const, text: step.label }];
+            });
+
+            i++;
+            setTimeout(runNext, step.durationMs);
+        };
+
+        // Remove the generic "thinking" message and start steps
+        setTimeout(() => {
+            setMessages(m => m.filter(msg => msg.role !== "thinking"));
+            runNext();
+        }, 400);
+    }, []);
+
     // --- AI Analysis Engine ---
     const handleCommand = useCallback((input: string) => {
         const text = input.toLowerCase();
         setMessages(m => [...m, { id: Date.now().toString(), role: "user", text: input }]);
         setChatInput("");
-        setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: "thinking", text: "Analyzing datasets..." }]);
+
+        // Check if this is a complex agentic query (DWH / spill)
+        const isDWH = text.includes("deepwater") || text.includes("spill") || text.includes("oil") || text.includes("bp") || text.includes("dwh") || text.includes("horizon");
+
+        setMessages(m => [...m, { id: (Date.now() + 1).toString(), role: "thinking", text: isDWH ? "Initializing impact assessment agent..." : "Analyzing datasets..." }]);
+
+        if (isDWH) {
+            // Run with agentic steps
+            const totalRows = Array.from(data.values()).reduce((sum, yd) => sum + yd.rows.length, 0);
+            runAgenticSteps(
+                [
+                    { label: `Scanning ${totalRows.toLocaleString()} records across ${years.length} survey years...`, durationMs: 800 },
+                    { label: `Establishing pre-spill baseline (${years.filter(y => y <= 2010).join(", ") || "N/A"})...`, durationMs: 700 },
+                    { label: "Comparing post-spill population trajectories (2011–2014)...", durationMs: 600 },
+                    { label: `Analyzing ${new Set(Array.from(data.values()).flatMap(yd => Array.from(yd.colonies.keys()))).size} colonies for recovery patterns...`, durationMs: 900 },
+                    { label: "Cross-referencing species-level impact data...", durationMs: 600 },
+                    { label: "Computing colony recovery classifications...", durationMs: 500 },
+                    { label: "Generating Deepwater Horizon impact assessment...", durationMs: 400 },
+                ],
+                () => computeDWHResponse(data, years)
+            );
+            return;
+        }
 
         setTimeout(() => {
             let response = "";
@@ -413,7 +589,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     response += `  ${Math.round(currentYr.totalBirds).toLocaleString()} birds | ${Math.round(currentYr.totalNests).toLocaleString()} nests | ${currentYr.colonies.size} active colonies`;
                 }
             } else {
-                response = "I can analyze:\n- \"analyze [year]\" — year breakdown\n- \"compare [year] vs [year]\" — side by side\n- \"declining\" — at-risk colonies\n- \"recovery\" — success stories\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n\nOr click a colony on the map for auto-analysis.";
+                response = "I can analyze:\n- \"Deepwater Horizon impact\" — full BP spill assessment\n- \"analyze [year]\" — year breakdown\n- \"compare [year] vs [year]\" — side by side\n- \"declining\" — at-risk colonies\n- \"recovery\" — success stories\n- \"top species\" — dominance analysis\n- \"health report\" — ecosystem overview\n\nOr click a colony on the map for auto-analysis.";
             }
 
             setMessages(m => m.filter(msg => msg.role !== "thinking").concat({ id: Date.now().toString(), role: "bot", text: response }));
@@ -667,6 +843,16 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                     {m.role === 'thinking' ? (
                                         <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg glass text-primary thinking-pulse text-[10px]">
                                             <Loader2 className="h-3 w-3 animate-spin" />
+                                            <span>{m.text}</span>
+                                        </div>
+                                    ) : m.role === 'step-active' ? (
+                                        <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-primary/80 animate-in fade-in duration-300">
+                                            <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                            <span>{m.text}</span>
+                                        </div>
+                                    ) : m.role === 'step-done' ? (
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-emerald-400/70 animate-in fade-in duration-200">
+                                            <span className="shrink-0">✓</span>
                                             <span>{m.text}</span>
                                         </div>
                                     ) : (
