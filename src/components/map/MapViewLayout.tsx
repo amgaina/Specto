@@ -1247,7 +1247,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
 
             {/* --- Historical Trend Modal --- */}
             <Dialog open={trendModalOpen} onOpenChange={setTrendModalOpen}>
-                <DialogContent className="max-w-3xl bg-white border-gray-200 rounded-xl p-0 overflow-hidden [&>button]:hidden">
+                <DialogContent className="max-w-3xl bg-white border-gray-200 rounded-xl p-0 overflow-hidden [&>button]:hidden z-[99999]">
                     <div className="flex h-[400px]">
                         <div className="w-44 border-r border-gray-100 bg-gray-50 p-4 flex flex-col shrink-0">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Species</span>
