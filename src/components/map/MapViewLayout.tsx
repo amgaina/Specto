@@ -115,9 +115,9 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
         let key = 0;
         while ((match = re.exec(s)) !== null) {
             if (match.index > lastIdx) parts.push(s.slice(lastIdx, match.index));
-            if (match[2]) parts.push(<strong key={key++} className="text-white font-semibold">{match[2]}</strong>);
-            else if (match[3]) parts.push(<em key={key++} className="text-white/60 italic">{match[3]}</em>);
-            else if (match[4]) parts.push(<code key={key++} className="px-1 py-0.5 rounded bg-white/10 text-primary text-[0.85em]">{match[4]}</code>);
+            if (match[2]) parts.push(<strong key={key++} className="text-gray-900 font-semibold">{match[2]}</strong>);
+            else if (match[3]) parts.push(<em key={key++} className="text-gray-500 italic">{match[3]}</em>);
+            else if (match[4]) parts.push(<code key={key++} className="px-1 py-0.5 rounded bg-gray-100 text-blue-700 text-[0.85em]">{match[4]}</code>);
             lastIdx = match.index + match[0].length;
         }
         if (lastIdx < s.length) parts.push(s.slice(lastIdx));
@@ -128,17 +128,17 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
         const line = lines[i];
 
         if (line.match(/^-{3,}$/) || line.match(/^_{3,}$/)) {
-            elements.push(<hr key={i} className="border-white/10 my-2" />);
+            elements.push(<hr key={i} className="border-gray-200 my-2" />);
             i++; continue;
         }
 
         const hMatch = line.match(/^(#{1,4})\s+(.+)/);
         if (hMatch) {
             const level = hMatch[1].length;
-            const cls = level === 1 ? "text-base font-bold text-white mt-1 mb-1.5"
-                : level === 2 ? "text-sm font-bold text-primary mt-2 mb-1"
-                : level === 3 ? "text-xs font-semibold text-white/80 mt-2 mb-0.5 uppercase tracking-wider"
-                : "text-xs font-medium text-white/60 mt-1.5 mb-0.5";
+            const cls = level === 1 ? "text-base font-bold text-gray-900 mt-1 mb-1.5"
+                : level === 2 ? "text-sm font-bold text-blue-700 mt-2 mb-1"
+                : level === 3 ? "text-xs font-semibold text-gray-700 mt-2 mb-0.5 uppercase tracking-wider"
+                : "text-xs font-medium text-gray-500 mt-1.5 mb-0.5";
             elements.push(<div key={i} className={cls}>{renderInline(hMatch[2])}</div>);
             i++; continue;
         }
@@ -152,18 +152,18 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
                 i++;
             }
             elements.push(
-                <div key={`tbl-${i}`} className="my-1.5 overflow-x-auto rounded border border-white/10">
+                <div key={`tbl-${i}`} className="my-1.5 overflow-x-auto rounded border border-gray-200">
                     <table className="w-full text-[0.85em]">
-                        <thead><tr className="border-b border-white/10 bg-white/[0.03]">
-                            {headers.map((h, hi) => <th key={hi} className="px-2 py-1 text-left font-semibold text-white/70">{renderInline(h)}</th>)}
+                        <thead><tr className="border-b border-gray-200 bg-gray-50">
+                            {headers.map((h, hi) => <th key={hi} className="px-2 py-1 text-left font-semibold text-gray-600">{renderInline(h)}</th>)}
                         </tr></thead>
                         <tbody>
                             {rows.map((row, ri) => (
-                                <tr key={ri} className="border-b border-white/5 last:border-0">
+                                <tr key={ri} className="border-b border-gray-100 last:border-0">
                                     {row.map((cell, ci) => {
                                         const isNeg = cell.match(/-\d+%/);
                                         const isPos = cell.match(/\+\d+%/);
-                                        return <td key={ci} className={`px-2 py-1 ${isNeg ? 'text-red-400' : isPos ? 'text-emerald-400' : 'text-muted-foreground'}`}>{renderInline(cell)}</td>;
+                                        return <td key={ci} className={`px-2 py-1 ${isNeg ? 'text-red-600' : isPos ? 'text-green-600' : 'text-gray-700'}`}>{renderInline(cell)}</td>;
                                     })}
                                 </tr>
                             ))}
@@ -176,7 +176,7 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
 
         if (line.startsWith('> ')) {
             elements.push(
-                <div key={i} className="border-l-2 border-primary/50 pl-2.5 py-1 my-1 text-white/50 italic">
+                <div key={i} className="border-l-2 border-blue-300 pl-2.5 py-1 my-1 text-gray-500 italic">
                     {renderInline(line.slice(2))}
                 </div>
             );
@@ -186,8 +186,8 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
         if (line.match(/^[-*]\s/)) {
             elements.push(
                 <div key={i} className="flex gap-1.5 py-0.5">
-                    <span className="text-primary mt-0.5 shrink-0">•</span>
-                    <span className="text-muted-foreground">{renderInline(line.replace(/^[-*]\s/, ''))}</span>
+                    <span className="text-blue-500 mt-0.5 shrink-0">•</span>
+                    <span className="text-gray-700">{renderInline(line.replace(/^[-*]\s/, ''))}</span>
                 </div>
             );
             i++; continue;
@@ -197,8 +197,8 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
         if (olMatch) {
             elements.push(
                 <div key={i} className="flex gap-1.5 py-0.5">
-                    <span className="text-white/40 shrink-0 w-4 text-right font-mono">{olMatch[1]}.</span>
-                    <span className="text-muted-foreground">{renderInline(olMatch[2])}</span>
+                    <span className="text-gray-400 shrink-0 w-4 text-right font-mono">{olMatch[1]}.</span>
+                    <span className="text-gray-700">{renderInline(olMatch[2])}</span>
                 </div>
             );
             i++; continue;
@@ -206,7 +206,7 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
 
         if (line.match(/^\s{2,}/) && line.trim()) {
             elements.push(
-                <div key={i} className="pl-6 text-muted-foreground/70 -mt-0.5">
+                <div key={i} className="pl-6 text-gray-500 -mt-0.5">
                     {renderInline(line.trim())}
                 </div>
             );
@@ -218,7 +218,7 @@ function MiniMarkdown({ text, className }: { text: string; className?: string })
             i++; continue;
         }
 
-        elements.push(<div key={i} className="text-muted-foreground py-0.5">{renderInline(line)}</div>);
+        elements.push(<div key={i} className="text-gray-700 py-0.5">{renderInline(line)}</div>);
         i++;
     }
 
@@ -849,30 +849,52 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
         });
     }, [activeColony, years, data, trendSpecies]);
 
+    // Compute colony trends for status coloring
+    const colonyTrends = useMemo(() => {
+        const trends = new Map<string, "growing" | "stable" | "declining" | "unknown">();
+        const allNames = new Set<string>();
+        data.forEach(yd => yd.colonies.forEach((_, n) => allNames.add(n)));
+        allNames.forEach(name => {
+            const hist = getColonyHistory(data, name, years).map(h => h.birds);
+            const nonZero = hist.filter(v => v > 0);
+            if (nonZero.length < 2) { trends.set(name, "unknown"); return; }
+            const t = computeTrend(hist);
+            trends.set(name, t.direction === "up" ? "growing" : t.direction === "down" ? "declining" : "stable");
+        });
+        return trends;
+    }, [data, years]);
+
+    // Count by status
+    const statusCounts = useMemo(() => {
+        let growing = 0, stable = 0, declining = 0;
+        colonyTrends.forEach(t => { if (t === "growing") growing++; else if (t === "declining") declining++; else if (t === "stable") stable++; });
+        return { growing, stable, declining };
+    }, [colonyTrends]);
+
     // ========================================================================
-    // RENDER
+    // RENDER — BRIGHT, READABLE, USER-FRIENDLY
     // ========================================================================
     return (
-        <div className="h-screen w-full flex flex-col bg-[#050505] text-[#e1e1e1] overflow-hidden">
+        <div className="h-screen w-full flex flex-col bg-[#f5f7fa] text-gray-900 overflow-hidden">
             <style>{`
-                .glass { background: rgba(10, 10, 10, 0.7); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); }
-                .glass-light { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.06); }
-                .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
-                @keyframes pulse-ring { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+                .map-card { background: white; border: 1px solid #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+                .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
                 @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
                 @keyframes slide-in-right { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
                 .animate-fade-up { animation: fade-up 0.5s ease-out both; }
                 .animate-slide-right { animation: slide-in-right 0.35s ease-out both; }
                 .detail-enter { animation: slide-in-right 0.3s ease-out both; }
+                .colony-tooltip { background: white !important; color: #1f2937 !important; border: 1px solid #e5e7eb !important; border-radius: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
             `}</style>
 
             {header}
 
             {loading ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-black/20">
-                    <Loader2 className="animate-spin h-10 w-10 text-primary" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Loading Data</p>
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-gray-50">
+                    <Loader2 className="animate-spin h-10 w-10 text-blue-600" />
+                    <p className="text-sm font-semibold text-gray-500">Loading colony data...</p>
                 </div>
             ) : (
                 <div className="flex-1 relative overflow-hidden">
@@ -881,6 +903,8 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                     <div className="absolute inset-0 z-0">
                         <ColonyMap
                             colonies={mapColonies}
+                            colonyTrends={colonyTrends}
+                            colorMode="status"
                             onColonyClick={(colony) => {
                                 const match = filteredColonies.find(c => c.name === colony.colonyName);
                                 if (match) setActiveColony(match);
@@ -891,96 +915,130 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                         />
                     </div>
 
-                    {/* ====== FLOATING STAT STRIP (top center) ====== */}
+                    {/* ====== STAT CARDS (top center) — white, big numbers ====== */}
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] animate-fade-up">
-                        <div className="glass rounded-2xl px-8 py-3 flex items-center gap-8">
+                        <div className="flex items-center gap-3">
                             {[
-                                { label: "Colonies", value: animColonies, icon: MapPin },
-                                { label: "Species", value: animSpecies, icon: Bird },
-                                { label: "Years", value: animYears, icon: TrendingUp },
-                                { label: "Birds", value: animBirds.toLocaleString(), icon: Eye },
-                            ].map(({ label, value, icon: Icon }) => (
-                                <div key={label} className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <Icon className="h-4 w-4 text-primary" />
+                                { label: "Colonies", value: animColonies.toLocaleString(), icon: MapPin, color: "bg-blue-50 text-blue-600" },
+                                { label: "Species", value: animSpecies.toLocaleString(), icon: Bird, color: "bg-green-50 text-green-600" },
+                                { label: "Years of Data", value: animYears.toLocaleString(), icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+                                { label: "Birds Counted", value: animBirds.toLocaleString(), icon: Eye, color: "bg-amber-50 text-amber-600" },
+                            ].map(({ label, value, icon: Icon, color }) => (
+                                <div key={label} className="map-card rounded-xl px-5 py-3 flex items-center gap-3 min-w-[150px]">
+                                    <div className={`h-10 w-10 rounded-lg ${color} flex items-center justify-center`}>
+                                        <Icon className="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <div className="text-2xl font-bold leading-none tracking-tight">{value}</div>
-                                        <div className="text-[10px] font-bold uppercase tracking-widest text-white/40 mt-0.5">{label}</div>
+                                        <div className="text-2xl font-bold leading-none text-gray-900">{value}</div>
+                                        <div className="text-xs font-medium text-gray-500 mt-0.5">{label}</div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* ====== FLOATING FILTER PILLS (top left) ====== */}
-                    <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2 animate-fade-up" style={{ animationDelay: "0.1s" }}>
+                    {/* ====== FILTER BAR (top left) — bright, readable ====== */}
+                    <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2 animate-fade-up" style={{ animationDelay: "0.1s" }}>
                         <button
                             onClick={() => setFilterOpen(!filterOpen)}
-                            className={`glass rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-white/10 transition-colors ${filterOpen ? 'ring-1 ring-primary/50' : ''}`}
+                            className={`map-card rounded-xl px-4 py-2.5 flex items-center gap-2 hover:bg-gray-50 transition-colors ${filterOpen ? 'ring-2 ring-blue-500' : ''}`}
                         >
-                            <Filter className="h-3.5 w-3.5 text-primary" />
-                            <span className="text-xs font-semibold">Filters</span>
+                            <Filter className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-semibold text-gray-700">Filters</span>
                             {(selectedRegion !== "All" || selectedSpecies !== "All") && (
-                                <span className="h-4 w-4 rounded-full bg-primary text-[9px] font-bold flex items-center justify-center text-white">
+                                <span className="h-5 w-5 rounded-full bg-blue-600 text-[10px] font-bold flex items-center justify-center text-white">
                                     {(selectedRegion !== "All" ? 1 : 0) + (selectedSpecies !== "All" ? 1 : 0)}
                                 </span>
                             )}
                         </button>
 
                         {filterOpen && (
-                            <div className="glass rounded-xl p-3 flex items-center gap-3 animate-slide-right">
+                            <div className="map-card rounded-xl p-4 flex flex-col gap-3 animate-slide-right min-w-[280px]">
                                 <div>
-                                    <label className="text-[9px] font-bold uppercase tracking-wider text-white/40 block mb-1">Region</label>
+                                    <label className="text-xs font-semibold text-gray-500 block mb-1.5">Region</label>
                                     <select
                                         value={selectedRegion}
                                         onChange={e => setSelectedRegion(e.target.value)}
-                                        className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white min-w-[140px] focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     >
-                                        {allRegions.map(r => <option key={r} value={r} className="bg-[#0a0a0a]">{r}</option>)}
+                                        {allRegions.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-[9px] font-bold uppercase tracking-wider text-white/40 block mb-1">Species</label>
+                                    <label className="text-xs font-semibold text-gray-500 block mb-1.5">Species</label>
                                     <select
                                         value={selectedSpecies}
                                         onChange={e => setSelectedSpecies(e.target.value)}
-                                        className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white min-w-[100px] focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     >
-                                        {allSpecies.map(s => <option key={s} value={s} className="bg-[#0a0a0a]">{s}</option>)}
+                                        {allSpecies.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                 </div>
                                 {(selectedRegion !== "All" || selectedSpecies !== "All") && (
                                     <button
                                         onClick={() => { setSelectedRegion("All"); setSelectedSpecies("All"); }}
-                                        className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                                        className="text-sm text-blue-600 hover:text-blue-800 font-medium self-start"
                                     >
-                                        <X className="h-3.5 w-3.5" />
+                                        Clear filters
                                     </button>
                                 )}
                             </div>
                         )}
                     </div>
 
-                    {/* ====== COLONY DETAIL PANEL (right slide-in) ====== */}
+                    {/* ====== MAP LEGEND (bottom left) — clear, meaningful ====== */}
+                    <div className="absolute bottom-20 left-4 z-[1000] animate-fade-up" style={{ animationDelay: "0.2s" }}>
+                        <div className="map-card rounded-xl p-4 min-w-[180px]">
+                            <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide mb-3">Colony Status</h4>
+                            <div className="space-y-2.5">
+                                {[
+                                    { label: `Growing (${statusCounts.growing})`, color: "#16A34A" },
+                                    { label: `Stable (${statusCounts.stable})`, color: "#2563EB" },
+                                    { label: `Declining (${statusCounts.declining})`, color: "#DC2626" },
+                                    { label: "No Data", color: "#9CA3AF" },
+                                ].map(({ label, color }) => (
+                                    <div key={label} className="flex items-center gap-2.5">
+                                        <div className="h-4 w-4 rounded-full border-2 border-white" style={{ background: color, boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                                        <span className="text-sm text-gray-700">{label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="border-t border-gray-100 mt-3 pt-3">
+                                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide mb-2">Population Size</h4>
+                                <div className="flex items-end gap-3">
+                                    {[
+                                        { size: 7, label: "<100" },
+                                        { size: 12, label: "500" },
+                                        { size: 20, label: "2K" },
+                                        { size: 28, label: "10K+" },
+                                    ].map(({ size, label }) => (
+                                        <div key={label} className="flex flex-col items-center gap-1">
+                                            <div className="rounded-full bg-gray-400 border-2 border-white" style={{ width: size, height: size, boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                                            <span className="text-[10px] text-gray-500">{label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ====== COLONY DETAIL PANEL (right slide-in) — white, readable ====== */}
                     {detailOpen && activeColony && colonyAnalysis && (
-                        <div className="absolute top-0 right-0 bottom-16 w-[380px] z-[1000] detail-enter">
-                            <div className="h-full glass-light rounded-l-2xl flex flex-col overflow-hidden">
+                        <div className="absolute top-0 right-0 bottom-16 w-[400px] z-[1000] detail-enter">
+                            <div className="h-full bg-white border-l border-gray-200 shadow-xl flex flex-col overflow-hidden">
                                 {/* Header */}
-                                <div className="px-5 py-4 border-b border-white/5 bg-white/[0.02]">
+                                <div className="px-6 py-5 border-b border-gray-100 bg-gray-50">
                                     <div className="flex items-center justify-between">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <MapPin className="h-4 w-4 text-primary shrink-0" />
-                                                <h2 className="text-xl font-bold truncate leading-tight">{activeColony.name}</h2>
+                                                <MapPin className="h-5 w-5 text-blue-600 shrink-0" />
+                                                <h2 className="text-xl font-bold text-gray-900 truncate">{activeColony.name}</h2>
                                             </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">{activeColony.region}</span>
-                                            </div>
+                                            <span className="inline-block mt-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-0.5 rounded-full">{activeColony.region}</span>
                                         </div>
                                         <button
                                             onClick={() => { setDetailOpen(false); setActiveColony(null); }}
-                                            className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors shrink-0"
+                                            className="h-8 w-8 rounded-lg bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors shrink-0"
                                         >
                                             <X className="h-4 w-4" />
                                         </button>
@@ -988,45 +1046,45 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                 </div>
 
                                 {/* Key metrics */}
-                                <div className="px-5 py-4 grid grid-cols-3 gap-3 border-b border-white/5">
+                                <div className="px-6 py-5 grid grid-cols-3 gap-4 border-b border-gray-100">
                                     <div>
-                                        <div className="text-[10px] font-bold uppercase text-white/40 mb-1">Birds</div>
-                                        <div className="text-2xl font-bold leading-none">{Math.round(activeColony.birds).toLocaleString()}</div>
-                                        <TrendBadge trend={colonyAnalysis.birdTrend} size="sm" />
+                                        <div className="text-xs font-semibold text-gray-500 mb-1">Birds</div>
+                                        <div className="text-2xl font-bold text-gray-900 leading-none">{Math.round(activeColony.birds).toLocaleString()}</div>
+                                        <div className="mt-1"><TrendBadge trend={colonyAnalysis.birdTrend} size="sm" /></div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] font-bold uppercase text-white/40 mb-1">Nests</div>
-                                        <div className="text-2xl font-bold leading-none">{Math.round(activeColony.nests).toLocaleString()}</div>
-                                        <TrendBadge trend={colonyAnalysis.nestTrend} size="sm" />
+                                        <div className="text-xs font-semibold text-gray-500 mb-1">Nests</div>
+                                        <div className="text-2xl font-bold text-gray-900 leading-none">{Math.round(activeColony.nests).toLocaleString()}</div>
+                                        <div className="mt-1"><TrendBadge trend={colonyAnalysis.nestTrend} size="sm" /></div>
                                     </div>
                                     <div>
-                                        <div className="text-[10px] font-bold uppercase text-white/40 mb-1">Species</div>
-                                        <div className="text-2xl font-bold leading-none">{activeColony.species.size}</div>
-                                        <span className="text-[10px] text-white/30">taxa</span>
+                                        <div className="text-xs font-semibold text-gray-500 mb-1">Species</div>
+                                        <div className="text-2xl font-bold text-gray-900 leading-none">{activeColony.species.size}</div>
+                                        <div className="text-xs text-gray-400 mt-1">taxa</div>
                                     </div>
                                 </div>
 
-                                {/* Sparkline trend chart */}
-                                <div className="px-5 py-4 border-b border-white/5">
+                                {/* Population trend chart */}
+                                <div className="px-6 py-4 border-b border-gray-100">
                                     <div className="flex items-center justify-between mb-3">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Population Trend</span>
+                                        <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">Population Trend</span>
                                         <button
                                             onClick={() => { setTrendSpecies("TOTAL"); setTrendModalOpen(true); }}
-                                            className="text-[10px] text-primary hover:underline font-semibold"
+                                            className="text-xs text-blue-600 hover:underline font-semibold"
                                         >
-                                            Expand
+                                            Full chart
                                         </button>
                                     </div>
-                                    <div className="h-16">
+                                    <div className="h-16 bg-gray-50 rounded-lg p-2">
                                         <Sparkline
                                             data={colonyAnalysis.history.map(h => h.birds)}
-                                            width={330}
-                                            height={60}
-                                            color={colonyAnalysis.birdTrend.direction === "down" ? "#f87171" : colonyAnalysis.birdTrend.direction === "up" ? "#34d399" : "#6b7280"}
+                                            width={340}
+                                            height={48}
+                                            color={colonyAnalysis.birdTrend.direction === "down" ? "#DC2626" : colonyAnalysis.birdTrend.direction === "up" ? "#16A34A" : "#6b7280"}
                                             animate={true}
                                         />
                                     </div>
-                                    <div className="flex justify-between text-[9px] font-mono text-white/20 mt-1">
+                                    <div className="flex justify-between text-[11px] text-gray-400 mt-1 px-2">
                                         <span>{years[0]}</span>
                                         <span>{years[years.length - 1]}</span>
                                     </div>
@@ -1034,30 +1092,30 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
 
                                 {/* Alerts */}
                                 {colonyAnalysis.anomalies.length > 0 && (
-                                    <div className="px-5 py-3 border-b border-white/5 bg-amber-500/[0.03]">
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                                            <span className="text-[10px] font-bold uppercase text-amber-400 tracking-wider">Alerts</span>
+                                    <div className="px-6 py-3 border-b border-gray-100 bg-amber-50">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                            <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Alerts</span>
                                         </div>
                                         {colonyAnalysis.anomalies.slice(0, 3).map((a, i) => (
-                                            <p key={i} className="text-xs text-amber-200/60 mb-0.5">{a}</p>
+                                            <p key={i} className="text-sm text-amber-700 mb-0.5">{a}</p>
                                         ))}
                                     </div>
                                 )}
 
                                 {/* Species list */}
                                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                    <div className="px-5 py-3">
-                                        <div className="flex items-center gap-1.5 mb-3">
-                                            <Eye className="h-3.5 w-3.5 text-primary" />
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Species</span>
+                                    <div className="px-6 py-4">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Eye className="h-4 w-4 text-gray-500" />
+                                            <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">Species Breakdown</span>
                                         </div>
                                         <div className="space-y-1">
                                             {colonyAnalysis.speciesTrends.slice(0, 10).map((sp) => (
-                                                <div key={sp.species} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-white/[0.02] transition-colors">
-                                                    <span className="text-xs font-bold text-primary uppercase w-12 shrink-0">{sp.species}</span>
-                                                    <Sparkline data={sp.sparkline} width={60} height={16} color={sp.trend.direction === "down" ? "#f87171" : sp.trend.direction === "up" ? "#34d399" : "#6b7280"} />
-                                                    <span className="text-xs font-mono text-right flex-1">{Math.round(sp.lastVal).toLocaleString()}</span>
+                                                <div key={sp.species} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
+                                                    <span className="text-sm font-bold text-blue-700 uppercase w-14 shrink-0">{sp.species}</span>
+                                                    <Sparkline data={sp.sparkline} width={70} height={18} color={sp.trend.direction === "down" ? "#DC2626" : sp.trend.direction === "up" ? "#16A34A" : "#6b7280"} />
+                                                    <span className="text-sm font-semibold text-gray-900 text-right flex-1">{Math.round(sp.lastVal).toLocaleString()}</span>
                                                     <TrendBadge trend={sp.trend} />
                                                 </div>
                                             ))}
@@ -1068,55 +1126,56 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                         </div>
                     )}
 
-                    {/* ====== AI CHAT FAB + PANEL (bottom right) ====== */}
+                    {/* ====== AI CHAT FAB + PANEL ====== */}
                     {!chatOpen && (
                         <button
                             onClick={() => setChatOpen(true)}
-                            className="absolute bottom-20 right-4 z-[1000] h-12 w-12 rounded-2xl bg-primary shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-105 transition-transform animate-fade-up"
+                            className="absolute bottom-20 right-4 z-[1000] h-14 px-5 rounded-full bg-blue-600 shadow-lg shadow-blue-600/30 flex items-center gap-2 hover:bg-blue-700 hover:scale-105 transition-all animate-fade-up"
                             style={{ animationDelay: "0.3s" }}
                         >
                             <Bot className="h-5 w-5 text-white" />
+                            <span className="text-sm font-semibold text-white">Ask AI</span>
                         </button>
                     )}
 
                     {chatOpen && (
-                        <div className="absolute bottom-20 right-4 z-[1000] w-[380px] h-[500px] glass rounded-2xl flex flex-col overflow-hidden animate-slide-right">
-                            <div className="px-4 py-3 border-b border-white/10 bg-primary/5 flex items-center gap-3">
-                                <div className="h-7 w-7 bg-primary rounded-lg flex items-center justify-center">
-                                    <Bot className="h-3.5 w-3.5 text-white" />
+                        <div className="absolute bottom-20 right-4 z-[1000] w-[400px] h-[520px] map-card rounded-2xl flex flex-col overflow-hidden animate-slide-right">
+                            <div className="px-4 py-3 border-b border-gray-100 bg-blue-50 flex items-center gap-3">
+                                <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                    <Bot className="h-4 w-4 text-white" />
                                 </div>
                                 <div className="flex-1">
-                                    <h3 className="text-xs font-bold uppercase tracking-wider leading-none">Data Analyst</h3>
-                                    <p className="text-[9px] font-bold text-emerald-400 mt-0.5 uppercase tracking-wider">Live</p>
+                                    <h3 className="text-sm font-bold text-gray-900 leading-none">Data Analyst</h3>
+                                    <p className="text-xs font-medium text-green-600 mt-0.5">Online</p>
                                 </div>
-                                <button onClick={() => setChatOpen(false)} className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors">
+                                <button onClick={() => setChatOpen(false)} className="h-7 w-7 rounded-lg bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
                                     <X className="h-3.5 w-3.5" />
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 custom-scrollbar bg-gray-50">
                                 {messages.map(m => (
-                                    <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-1 duration-300`}>
+                                    <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         {m.role === 'thinking' ? (
-                                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs">
-                                                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm">
+                                                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                                                 <span className="font-medium">{m.text}</span>
                                             </div>
                                         ) : m.role === 'step-active' ? (
-                                            <div className="flex items-center gap-2 px-2.5 py-1 text-xs text-primary animate-in fade-in duration-300">
-                                                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                                            <div className="flex items-center gap-2 px-3 py-1 text-sm text-blue-600">
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
                                                 <span>{m.text}</span>
                                             </div>
                                         ) : m.role === 'step-done' ? (
-                                            <div className="flex items-center gap-2 px-2.5 py-0.5 text-xs text-emerald-400/60 animate-in fade-in duration-200">
-                                                <span className="shrink-0 text-emerald-400">✓</span>
-                                                <span className="line-through decoration-emerald-400/20">{m.text}</span>
+                                            <div className="flex items-center gap-2 px-3 py-0.5 text-sm text-green-600/70">
+                                                <span className="shrink-0 text-green-500">✓</span>
+                                                <span className="line-through">{m.text}</span>
                                             </div>
                                         ) : m.role === 'user' ? (
-                                            <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-tr-sm text-xs bg-primary text-white font-medium">{m.text}</div>
+                                            <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm bg-blue-600 text-white font-medium">{m.text}</div>
                                         ) : (
                                             <div className="max-w-[98%] w-full">
-                                                <div className="px-3 py-2.5 rounded-2xl rounded-tl-sm text-xs leading-relaxed bg-white/[0.03] border border-white/[0.06]">
+                                                <div className="px-4 py-3 rounded-2xl rounded-tl-sm text-sm leading-relaxed bg-white border border-gray-200 shadow-sm">
                                                     <MiniMarkdown text={m.text} />
                                                 </div>
                                             </div>
@@ -1126,39 +1185,39 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                 <div ref={chatEndRef} />
                             </div>
 
-                            <div className="px-3 py-2 border-t border-white/10 bg-black/40 flex gap-2">
+                            <div className="px-3 py-2.5 border-t border-gray-200 bg-white flex gap-2">
                                 <Input
                                     value={chatInput}
                                     onChange={e => setChatInput(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && chatInput.trim() && handleCommand(chatInput)}
                                     placeholder="Ask about colony data..."
-                                    className="h-9 text-xs rounded-xl bg-transparent border-white/10 px-3"
+                                    className="h-10 text-sm rounded-xl bg-gray-50 border-gray-200 px-3 text-gray-900 placeholder:text-gray-400"
                                 />
-                                <Button size="sm" className="h-9 w-9 rounded-xl shrink-0 bg-primary p-0" onClick={() => chatInput.trim() && handleCommand(chatInput)}>
+                                <Button size="sm" className="h-10 w-10 rounded-xl shrink-0 bg-blue-600 hover:bg-blue-700 p-0" onClick={() => chatInput.trim() && handleCommand(chatInput)}>
                                     <ArrowRight className="h-4 w-4 text-white" />
                                 </Button>
                             </div>
                         </div>
                     )}
 
-                    {/* ====== FLOATING TIMELINE BAR (bottom) ====== */}
+                    {/* ====== TIMELINE BAR (bottom) — white, clear ====== */}
                     <div className="absolute bottom-0 left-0 right-0 z-[999]">
-                        <div className="glass-light mx-0 rounded-t-none px-5 py-2.5 flex items-center gap-4">
+                        <div className="bg-white border-t border-gray-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] px-6 py-3 flex items-center gap-5">
                             <div className="flex items-center gap-3 shrink-0">
                                 <Button
-                                    onClick={() => { setIsPlaying(!isPlaying); if (!isPlaying) setActiveColony(null); }}
+                                    onClick={() => { setIsPlaying(!isPlaying); if (!isPlaying) { setActiveColony(null); setDetailOpen(false); } }}
                                     size="sm"
-                                    className={`h-10 w-10 rounded-xl p-0 ${isPlaying ? "bg-red-500 hover:bg-red-600" : "bg-primary hover:bg-primary/80"}`}
+                                    className={`h-11 w-11 rounded-xl p-0 ${isPlaying ? "bg-red-500 hover:bg-red-600" : "bg-blue-600 hover:bg-blue-700"}`}
                                 >
-                                    {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
+                                    {isPlaying ? <Pause className="h-5 w-5 fill-current text-white" /> : <Play className="h-5 w-5 fill-current ml-0.5 text-white" />}
                                 </Button>
                                 <div>
-                                    <span className="text-[9px] font-bold uppercase text-primary/60 tracking-widest block leading-none">Timeline</span>
-                                    <span className="text-2xl font-bold leading-none tracking-tight">{selectedYear}</span>
+                                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block leading-none">Year</span>
+                                    <span className="text-3xl font-bold text-gray-900 leading-none tracking-tight">{selectedYear}</span>
                                 </div>
                             </div>
 
-                            <div className="flex-1 flex items-end gap-[3px] h-10 bg-white/5 rounded-xl p-2 border border-white/5">
+                            <div className="flex-1 flex items-end gap-1 h-12 bg-gray-50 rounded-xl p-2 border border-gray-200">
                                 {years.map(y => {
                                     const active = y === selectedYear;
                                     const v = data.get(y)?.totalBirds || 0;
@@ -1167,7 +1226,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                         <button
                                             key={y}
                                             onClick={() => { setSelectedYear(y); setIsPlaying(false); }}
-                                            className={`flex-1 min-w-[6px] rounded-sm transition-all duration-300 ${active ? "bg-primary" : "bg-white/10 hover:bg-white/25"}`}
+                                            className={`flex-1 min-w-[8px] rounded transition-all duration-500 ${active ? "bg-blue-600" : "bg-gray-300 hover:bg-gray-400"}`}
                                             style={active ? { height: "100%" } : { height: `${Math.max(15, (v / max) * 100)}%` }}
                                             title={`${y}: ${Math.round(v).toLocaleString()} birds`}
                                         />
@@ -1175,8 +1234,11 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                 })}
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-[10px] text-white/30 font-mono">{filteredColonies.length} colonies</span>
+                            <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right">
+                                    <span className="text-lg font-bold text-gray-900">{filteredColonies.length}</span>
+                                    <span className="text-sm text-gray-500 ml-1">colonies</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1185,38 +1247,38 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
 
             {/* --- Historical Trend Modal --- */}
             <Dialog open={trendModalOpen} onOpenChange={setTrendModalOpen}>
-                <DialogContent className="max-w-3xl bg-[#0a0a0a] border-white/10 rounded-xl p-0 overflow-hidden [&>button]:hidden">
+                <DialogContent className="max-w-3xl bg-white border-gray-200 rounded-xl p-0 overflow-hidden [&>button]:hidden">
                     <div className="flex h-[400px]">
-                        <div className="w-40 border-r border-white/5 bg-black/40 p-3 flex flex-col shrink-0">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Species</span>
-                            <div className="space-y-0.5 overflow-y-auto custom-scrollbar flex-1">
-                                <button onClick={() => setTrendSpecies("TOTAL")} className={`w-full text-left px-2.5 py-1.5 rounded text-[10px] font-bold transition-all ${trendSpecies === "TOTAL" ? "bg-primary text-white" : "hover:bg-white/5 text-white/50"}`}>
+                        <div className="w-44 border-r border-gray-100 bg-gray-50 p-4 flex flex-col shrink-0">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Species</span>
+                            <div className="space-y-1 overflow-y-auto custom-scrollbar flex-1">
+                                <button onClick={() => setTrendSpecies("TOTAL")} className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold transition-all ${trendSpecies === "TOTAL" ? "bg-blue-600 text-white" : "hover:bg-gray-100 text-gray-600"}`}>
                                     All Species
                                 </button>
                                 {Array.from(activeColony?.species || []).map(s => (
-                                    <button key={s} onClick={() => setTrendSpecies(s)} className={`w-full text-left px-2.5 py-1.5 rounded text-[10px] font-semibold transition-all ${trendSpecies === s ? "bg-primary/20 text-primary" : "text-white/40 hover:text-white/70 hover:bg-white/5"}`}>
+                                    <button key={s} onClick={() => setTrendSpecies(s)} className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all ${trendSpecies === s ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}>
                                         {s}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        <div className="flex-1 p-5 flex flex-col">
-                            <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1 p-6 flex flex-col">
+                            <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="text-lg font-bold uppercase">{activeColony?.name}</h3>
-                                    <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">
+                                    <h3 className="text-xl font-bold text-gray-900">{activeColony?.name}</h3>
+                                    <p className="text-sm font-semibold text-blue-600 mt-0.5">
                                         {trendSpecies === "TOTAL" ? "All Species" : trendSpecies}
                                     </p>
                                 </div>
-                                <button onClick={() => setTrendModalOpen(false)} className="h-7 w-7 rounded bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors">
-                                    <span className="text-sm">×</span>
+                                <button onClick={() => setTrendModalOpen(false)} className="h-8 w-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
+                                    <X className="h-4 w-4" />
                                 </button>
                             </div>
                             <div className="flex-1 relative">
                                 {historicalLine.length > 1 && (() => {
                                     const maxVal = Math.max(...historicalLine.map(x => x.val), 1);
                                     const W = 600, H = 280;
-                                    const pad = { top: 20, right: 20, bottom: 8, left: 20 };
+                                    const pad = { top: 20, right: 20, bottom: 8, left: 40 };
                                     const cw = W - pad.left - pad.right;
                                     const ch = H - pad.top - pad.bottom;
                                     const pts = historicalLine.map((t, i) => ({
@@ -1230,33 +1292,33 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
                                         <svg className="w-full h-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
                                             <defs>
                                                 <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
-                                                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+                                                    <stop offset="0%" stopColor="#2563EB" stopOpacity="0.1" />
+                                                    <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
                                                 </linearGradient>
                                             </defs>
                                             {[0, 0.25, 0.5, 0.75, 1].map(f => {
                                                 const y = pad.top + ch - f * ch;
-                                                return <line key={f} x1={pad.left} y1={y} x2={pad.left + cw} y2={y} stroke="white" strokeOpacity="0.06" strokeWidth="1" />;
+                                                return <line key={f} x1={pad.left} y1={y} x2={pad.left + cw} y2={y} stroke="#e5e7eb" strokeWidth="1" />;
                                             })}
                                             <path d={fillPath} fill="url(#trendFill)" />
-                                            <path d={linePath} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d={linePath} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                                             {pts.map((p, i) => (
                                                 <g key={i}>
-                                                    <circle cx={p.x} cy={p.y} r="3.5" fill="hsl(var(--primary))" fillOpacity="0.2" stroke="none" />
-                                                    <circle cx={p.x} cy={p.y} r="2" fill="white" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+                                                    <circle cx={p.x} cy={p.y} r="4" fill="#2563EB" fillOpacity="0.15" stroke="none" />
+                                                    <circle cx={p.x} cy={p.y} r="2.5" fill="white" stroke="#2563EB" strokeWidth="2" />
                                                     <title>{p.yr}: {Math.round(p.val).toLocaleString()} birds</title>
                                                 </g>
                                             ))}
                                             {[0, 0.5, 1].map(f => {
                                                 const y = pad.top + ch - f * ch;
                                                 const v = Math.round(maxVal * f);
-                                                return <text key={f} x={pad.left - 4} y={y + 3} textAnchor="end" fill="white" fillOpacity="0.25" fontSize="9" fontFamily="monospace">{v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}</text>;
+                                                return <text key={f} x={pad.left - 6} y={y + 4} textAnchor="end" fill="#9ca3af" fontSize="11" fontFamily="Inter,system-ui,sans-serif">{v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}</text>;
                                             })}
                                         </svg>
                                     );
                                 })()}
                             </div>
-                            <div className="flex justify-between mt-2 text-[9px] font-mono text-white/30 border-t border-white/5 pt-2">
+                            <div className="flex justify-between mt-2 text-xs text-gray-400 border-t border-gray-100 pt-2">
                                 {historicalLine.filter((_, i) => i % Math.max(1, Math.floor(historicalLine.length / 6)) === 0 || i === historicalLine.length - 1).map(t => (
                                     <span key={t.yr}>{t.yr}</span>
                                 ))}
