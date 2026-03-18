@@ -24,7 +24,7 @@ function getRegionColor(region: string): string {
 }
 
 function markerRadius(birds: number): number {
-    return Math.sqrt(Math.max(birds, 1)) * 0.3 + 3;
+    return Math.sqrt(Math.max(birds, 1)) * 0.35 + 5;
 }
 
 export interface ColonyMapProps {
@@ -46,7 +46,7 @@ export function ColonyMap({
 }: ColonyMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<L.Map | null>(null);
-    const markersRef = useRef<L.CircleMarker[]>([]);
+    const markersRef = useRef<L.LayerGroup | null>(null);
 
     const validColonies = useMemo(
         () => colonies.filter(c => c.latitude && c.longitude),
@@ -60,72 +60,132 @@ export function ColonyMap({
         const map = L.map(containerRef.current, {
             center: [29.5, -90.0],
             zoom: 7,
-            zoomControl: interactive,
+            zoomControl: false,
             dragging: interactive,
             scrollWheelZoom: interactive,
             doubleClickZoom: interactive,
             touchZoom: interactive,
+            attributionControl: false,
         });
 
         L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
             attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
         }).addTo(map);
 
+        // Add zoom control to bottom-left to avoid overlapping with stat strip
+        if (interactive) {
+            L.control.zoom({ position: 'bottomleft' }).addTo(map);
+        }
+
         mapRef.current = map;
+        markersRef.current = L.layerGroup().addTo(map);
 
         return () => {
             map.remove();
             mapRef.current = null;
+            markersRef.current = null;
         };
     }, [interactive]);
 
     // Update markers when colonies/selection changes
     useEffect(() => {
         const map = mapRef.current;
-        if (!map) return;
+        const markerGroup = markersRef.current;
+        if (!map || !markerGroup) return;
 
-        // Clear old markers
-        markersRef.current.forEach(m => m.remove());
-        markersRef.current = [];
+        markerGroup.clearLayers();
 
         validColonies.forEach((colony) => {
             const isSelected = selectedColony === colony.colonyName;
             const color = getRegionColor(colony.geoRegion);
             const radius = isSelected
-                ? markerRadius(colony.totalBirds) * 1.5
+                ? markerRadius(colony.totalBirds) * 1.6
                 : markerRadius(colony.totalBirds);
 
-            const marker = L.circleMarker([colony.latitude!, colony.longitude!], {
-                radius,
-                color: isSelected ? "#fff" : color,
+            const pos: L.LatLngExpression = [colony.latitude!, colony.longitude!];
+
+            // Glow halo — larger, semi-transparent circle underneath
+            const glowRadius = radius * 2.2;
+            const glow = L.circleMarker(pos, {
+                radius: glowRadius,
+                color: "transparent",
                 fillColor: color,
-                fillOpacity: isSelected ? 0.9 : 0.6,
+                fillOpacity: isSelected ? 0.2 : 0.08,
+                weight: 0,
+                interactive: false,
+            });
+            markerGroup.addLayer(glow);
+
+            // Main marker
+            const marker = L.circleMarker(pos, {
+                radius,
+                color: isSelected ? "#ffffff" : color,
+                fillColor: color,
+                fillOpacity: isSelected ? 0.95 : 0.7,
                 weight: isSelected ? 3 : 1.5,
-            }).addTo(map);
+            });
+
+            // Pulsing ring for selected colony
+            if (isSelected) {
+                const pulseRing = L.circleMarker(pos, {
+                    radius: radius * 2,
+                    color: "#ffffff",
+                    fillColor: "transparent",
+                    fillOpacity: 0,
+                    weight: 2,
+                    opacity: 0.4,
+                    interactive: false,
+                    className: "pulse-ring-marker",
+                });
+                markerGroup.addLayer(pulseRing);
+            }
 
             marker.bindPopup(`
-                <div style="font-size:13px;min-width:180px;">
-                    <p style="font-weight:bold;font-size:14px;margin:0 0 4px 0;">${colony.colonyName}</p>
-                    <p style="font-size:11px;opacity:0.7;margin:0 0 8px 0;">${colony.geoRegion}</p>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;font-size:12px;">
-                        <span style="opacity:0.6;">Birds:</span>
-                        <span style="font-weight:600;text-align:right;">${colony.totalBirds.toLocaleString()}</span>
-                        <span style="opacity:0.6;">Nests:</span>
-                        <span style="font-weight:600;text-align:right;">${colony.totalNests.toLocaleString()}</span>
-                        <span style="opacity:0.6;">Species:</span>
-                        <span style="font-weight:600;text-align:right;">${colony.uniqueSpecies}</span>
-                        <span style="opacity:0.6;">Surveys:</span>
-                        <span style="font-weight:600;text-align:right;">${colony.observations}</span>
+                <div style="font-size:14px;min-width:200px;font-family:Inter,system-ui,sans-serif;">
+                    <p style="font-weight:700;font-size:16px;margin:0 0 4px 0;">${colony.colonyName}</p>
+                    <p style="font-size:11px;opacity:0.6;margin:0 0 10px 0;text-transform:uppercase;letter-spacing:0.05em;">${colony.geoRegion}</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;font-size:13px;">
+                        <span style="opacity:0.5;">Birds</span>
+                        <span style="font-weight:700;text-align:right;">${colony.totalBirds.toLocaleString()}</span>
+                        <span style="opacity:0.5;">Nests</span>
+                        <span style="font-weight:700;text-align:right;">${colony.totalNests.toLocaleString()}</span>
+                        <span style="opacity:0.5;">Species</span>
+                        <span style="font-weight:700;text-align:right;">${colony.uniqueSpecies}</span>
                     </div>
                 </div>
-            `);
+            `, { className: 'dark-popup' });
 
             if (onColonyClick) {
                 marker.on("click", () => onColonyClick(colony));
             }
 
-            markersRef.current.push(marker);
+            // Hover effect — enlarge on hover
+            marker.on("mouseover", () => {
+                if (!isSelected) {
+                    marker.setRadius(radius * 1.3);
+                    glow.setStyle({ fillOpacity: 0.15 });
+                }
+            });
+            marker.on("mouseout", () => {
+                if (!isSelected) {
+                    marker.setRadius(radius);
+                    glow.setStyle({ fillOpacity: 0.08 });
+                }
+            });
+
+            markerGroup.addLayer(marker);
         });
+
+        // Fly to selected colony
+        if (selectedColony) {
+            const selected = validColonies.find(c => c.colonyName === selectedColony);
+            if (selected) {
+                map.flyTo([selected.latitude!, selected.longitude!], Math.max(map.getZoom(), 9), {
+                    duration: 0.8,
+                    easeLinearity: 0.5,
+                });
+            }
+        }
 
         // Fit bounds if requested
         if (shouldFitBounds && validColonies.length > 0) {
@@ -146,7 +206,7 @@ export function ColonyMap({
         <div
             ref={containerRef}
             className={className}
-            style={{ background: "#0a0a0a" }}
+            style={{ background: "#050505" }}
         />
     );
 }
