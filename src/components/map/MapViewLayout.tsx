@@ -1024,7 +1024,7 @@ export default function MapViewLayout({ header }: MapViewLayoutProps) {
 
                     {/* ====== COLONY DETAIL PANEL (right slide-in) — white, readable ====== */}
                     {detailOpen && activeColony && colonyAnalysis && (
-                        <div className="absolute top-0 right-0 bottom-16 w-[400px] z-[1000] detail-enter">
+                        <div className="absolute top-0 right-0 bottom-16 w-[400px] z-[10000] detail-enter">
                             <div className="h-full bg-white border-l border-gray-200 shadow-xl flex flex-col overflow-hidden">
                                 {/* Header */}
                                 <div className="px-6 py-5 border-b border-gray-100 bg-gray-50">
